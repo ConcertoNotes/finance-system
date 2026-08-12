@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.codex-tmp/
+.playwright-cli/
+output/
+%USERP~1/
+*.log
+.DS_Store
+.vite/
