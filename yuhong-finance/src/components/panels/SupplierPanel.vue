@@ -5,12 +5,14 @@ import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
 import { materialDemands, supplierCriteria, suppliers } from '../../data/procurement.js'
 import { calculatePriceBaseline, scoreSuppliers } from '../../domain/procurement.js'
 import { money, num, percent } from '../../domain/format.js'
 
 const PAGES = ['scope', 'weights', 'score', 'budget', 'risk', 'approve']
 const flow = useTaskFlow('s2-t3', PAGES)
+const store = useFormPersist('s2-t3')
 
 const menu = [
   {
@@ -60,8 +62,20 @@ const VERIFY_ITEMS = [
   '历史付款记录：既往结算无欠款、无违约扣款记录',
 ]
 
-const weights = reactive(Object.fromEntries(supplierCriteria.map((item) => [item.key, item.weight * 100])))
-const scores = reactive(suppliers.map((item) => ({ ...item })))
+function emptyWeights() {
+  return Object.fromEntries(supplierCriteria.map((item) => [item.key, '']))
+}
+
+function emptyScores() {
+  return suppliers.map((item) => ({
+    id: item.id,
+    name: item.name,
+    ...Object.fromEntries(supplierCriteria.map((criterion) => [criterion.key, ''])),
+  }))
+}
+
+const weights = reactive(emptyWeights())
+const scores = reactive(emptyScores())
 const verified = reactive(Object.fromEntries(VERIFY_ITEMS.map((item) => [item, false])))
 const approval = reactive({ primary: '', backup1: '', backup2: '' })
 
@@ -86,7 +100,15 @@ const weightTotal = computed(() =>
   supplierCriteria.reduce((sum, item) => sum + (Number(weights[item.key]) || 0), 0),
 )
 
-const rows = computed(() => scoreSuppliers(scores, criteria.value))
+const scoredList = computed(() =>
+  scores.map((item) => ({
+    ...item,
+    ...Object.fromEntries(
+      supplierCriteria.map((criterion) => [criterion.key, Number(item[criterion.key]) || 0]),
+    ),
+  })),
+)
+const rows = computed(() => scoreSuppliers(scoredList.value, criteria.value))
 const ranked = computed(() => [...rows.value].sort((a, b) => a.rank - b.rank))
 const winner = computed(() => ranked.value[0])
 
@@ -102,6 +124,12 @@ const gapWord = computed(() => (priceGap.value <= 0 ? '低于' : '高于'))
 const chosenVerify = computed(() => VERIFY_ITEMS.filter((item) => verified[item]))
 const pendingPages = computed(() => PAGES.filter((p) => p !== 'approve' && !flow.isDone(p)).map((id) => leafLabels[id]))
 
+store.restore({ weights, scores, verified, approval })
+
+function snapshot() {
+  return { weights, scores, verified, approval }
+}
+
 function save(id, check) {
   const message = check ? check() : ''
   if (message) {
@@ -109,6 +137,7 @@ function save(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
@@ -149,8 +178,9 @@ function checkApproval() {
 
 function resetAll() {
   flow.reset()
-  supplierCriteria.forEach((item) => { weights[item.key] = item.weight * 100 })
-  scores.forEach((item, index) => Object.assign(item, suppliers[index]))
+  store.clear()
+  Object.assign(weights, emptyWeights())
+  scores.splice(0, scores.length, ...emptyScores())
   VERIFY_ITEMS.forEach((item) => { verified[item] = false })
   Object.assign(approval, { primary: '', backup1: '', backup2: '' })
   error.value = ''
@@ -173,7 +203,7 @@ function resetAll() {
         <!-- 采购管理 → 供应商管理 → 遴选范围确认 -->
         <template v-if="leaf === 'scope'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('scope')" @click="save('scope')">
+            <button type="button" class="primary-button" @click="save('scope')">
               确认评分范围
             </button>
           </div>
@@ -207,7 +237,7 @@ function resetAll() {
         <!-- 基础设置 → 评价指标 → 权重配置 -->
         <template v-else-if="leaf === 'weights'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('weights')" @click="save('weights', checkWeights)">
+            <button type="button" class="primary-button" @click="save('weights', checkWeights)">
               保存权重
             </button>
           </div>
@@ -218,7 +248,7 @@ function resetAll() {
             <tbody>
               <tr v-for="item in supplierCriteria" :key="item.key">
                 <th scope="row">{{ item.label }}</th>
-                <td><input v-model.number="weights[item.key]" type="number" min="0" max="100" :disabled="flow.isDone('weights')" /></td>
+                <td><input v-model.number="weights[item.key]" type="number" min="0" max="100" /></td>
               </tr>
               <tr>
                 <th scope="row">合计</th>
@@ -240,7 +270,7 @@ function resetAll() {
         <!-- 供应商评价 → 综合评分 -->
         <template v-else-if="leaf === 'score'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('score')" @click="save('score', checkScores)">
+            <button type="button" class="primary-button" @click="save('score', checkScores)">
               计算综合得分
             </button>
           </div>
@@ -256,7 +286,7 @@ function resetAll() {
                 <tr v-for="(row, index) in rows" :key="row.id">
                   <th scope="row">{{ row.id }}</th>
                   <td v-for="item in criteria" :key="item.key">
-                    <input v-model.number="scores[index][item.key]" type="number" min="0" max="100" :disabled="flow.isDone('score')" />
+                    <input v-model.number="scores[index][item.key]" type="number" min="0" max="100" />
                   </td>
                 </tr>
               </tbody>
@@ -305,7 +335,7 @@ function resetAll() {
         <!-- 供应商评价 → 预算符合性核验 -->
         <template v-else-if="leaf === 'budget'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('budget')" @click="save('budget')">
+            <button type="button" class="primary-button" @click="save('budget')">
               提交复核意见
             </button>
           </div>
@@ -344,13 +374,13 @@ function resetAll() {
         <!-- 供应商评价 → 主体资质核验 -->
         <template v-else-if="leaf === 'risk'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('risk')" @click="save('risk', checkVerify)">
+            <button type="button" class="primary-button" @click="save('risk', checkVerify)">
               提交核验结果
             </button>
           </div>
           <div class="checkbox-group">
             <label v-for="item in VERIFY_ITEMS" :key="item" class="checkbox-item">
-              <input v-model="verified[item]" type="checkbox" :disabled="flow.isDone('risk')" />{{ item }}
+              <input v-model="verified[item]" type="checkbox" />{{ item }}
             </label>
           </div>
           <template v-if="flow.isDone('risk')">
@@ -364,7 +394,7 @@ function resetAll() {
         <!-- 供应商评价 → 中选审批 -->
         <template v-else-if="leaf === 'approve'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('approve')" @click="save('approve', checkApproval)">
+            <button type="button" class="primary-button" @click="save('approve', checkApproval)">
               审批通过
             </button>
           </div>
@@ -374,21 +404,21 @@ function resetAll() {
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">主供应商</span>
-              <select v-model="approval.primary" class="form-control" :disabled="flow.isDone('approve')">
+              <select v-model="approval.primary" class="form-control">
                 <option value="">请选择</option>
                 <option v-for="row in ranked" :key="row.id" :value="row.id">{{ row.id }} · {{ money(row.total, 1) }} 分</option>
               </select>
             </label>
             <label class="form-item">
               <span class="form-label required">第一备选供应商</span>
-              <select v-model="approval.backup1" class="form-control" :disabled="flow.isDone('approve')">
+              <select v-model="approval.backup1" class="form-control">
                 <option value="">请选择</option>
                 <option v-for="row in ranked" :key="row.id" :value="row.id">{{ row.id }} · {{ money(row.total, 1) }} 分</option>
               </select>
             </label>
             <label class="form-item">
               <span class="form-label required">第二备选及兜底供应商</span>
-              <select v-model="approval.backup2" class="form-control" :disabled="flow.isDone('approve')">
+              <select v-model="approval.backup2" class="form-control">
                 <option value="">请选择</option>
                 <option v-for="row in ranked" :key="row.id" :value="row.id">{{ row.id }} · {{ money(row.total, 1) }} 分</option>
               </select>

@@ -13,6 +13,7 @@ const emit = defineEmits(['cleared'])
 const route = useRoute()
 
 const FLOW_PREFIX = 'yuhong-flow-'
+const FORM_PREFIX = 'yuhong-form-'
 
 const scope = computed(() => {
   if (route.name === 'task') {
@@ -20,7 +21,7 @@ const scope = computed(() => {
     if (!task) return null
     return {
       label: '清除本任务记录',
-      keys: [`${FLOW_PREFIX}${task.key}`],
+      keys: [`${FLOW_PREFIX}${task.key}`, `${FORM_PREFIX}${task.key}`],
     }
   }
   if (route.name === 'role') {
@@ -28,7 +29,7 @@ const scope = computed(() => {
     if (!role) return null
     return {
       label: '清除本岗位记录',
-      keys: getTasksByRole(role.id).map((task) => `${FLOW_PREFIX}${task.key}`),
+      keys: getTasksByRole(role.id).flatMap((task) => [`${FLOW_PREFIX}${task.key}`, `${FORM_PREFIX}${task.key}`]),
     }
   }
   if (route.name === 'home') {
@@ -59,7 +60,7 @@ function allFlowKeys() {
   const keys = []
   for (let i = 0; i < localStorage.length; i += 1) {
     const key = localStorage.key(i)
-    if (key && key.startsWith(FLOW_PREFIX)) keys.push(key)
+    if (key && (key.startsWith(FLOW_PREFIX) || key.startsWith(FORM_PREFIX))) keys.push(key)
   }
   return keys
 }

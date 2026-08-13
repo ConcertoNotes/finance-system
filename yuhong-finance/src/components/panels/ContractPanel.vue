@@ -5,12 +5,14 @@ import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
-import { PLAN_C_BUDGET_CAP, directPurchase, initialContract } from '../../data/procurement.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
+import { directPurchase, initialContract } from '../../data/procurement.js'
 import { calculateContractAmount, calculateDirectAmount } from '../../domain/procurement.js'
 import { money, num, percent } from '../../domain/format.js'
 
 const PAGES = ['contract', 'direct', 'terms', 'occupation', 'ledger', 'approve']
 const flow = useTaskFlow('s2-t4', PAGES)
+const store = useFormPersist('s2-t4')
 
 const menu = [
   {
@@ -73,11 +75,15 @@ const LEDGER_ITEMS = [
 const activeId = ref('')
 const error = ref('')
 
-const contractLines = reactive(initialContract.lines.map((line) => ({ ...line })))
-const directLines = reactive(directPurchase.lines.map((line) => ({ ...line })))
+function blankLine(line) {
+  return { ...line, quantity: '', price: '' }
+}
+
+const contractLines = reactive(initialContract.lines.map(blankLine))
+const directLines = reactive(directPurchase.lines.map(blankLine))
 const terms = reactive(Object.fromEntries(initialContract.terms.map((term) => [term, false])))
 const ledgers = reactive(Object.fromEntries(LEDGER_ITEMS.map((item) => [item, false])))
-const budgetCap = ref(PLAN_C_BUDGET_CAP)
+const budgetCap = ref('')
 
 /** 编辑过程中可能出现空值，送入测算前统一清洗为数值。 */
 function normalize(lines) {
@@ -101,6 +107,12 @@ const chosenTerms = computed(() => initialContract.terms.filter((term) => terms[
 const chosenLedgers = computed(() => LEDGER_ITEMS.filter((item) => ledgers[item]))
 const pendingPages = computed(() => PAGES.filter((id) => id !== 'approve' && !flow.isDone(id)))
 
+store.restore({ contractLines, directLines, terms, ledgers, budgetCap })
+
+function snapshot() {
+  return { contractLines, directLines, terms, ledgers, budgetCap }
+}
+
 function run(id, check) {
   const message = check ? check() : ''
   if (message) {
@@ -108,6 +120,7 @@ function run(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
@@ -149,11 +162,12 @@ function checkApprove() {
 
 function resetAll() {
   flow.reset()
-  contractLines.forEach((line, index) => Object.assign(line, initialContract.lines[index]))
-  directLines.forEach((line, index) => Object.assign(line, directPurchase.lines[index]))
+  store.clear()
+  contractLines.forEach((line, index) => Object.assign(line, blankLine(initialContract.lines[index])))
+  directLines.forEach((line, index) => Object.assign(line, blankLine(directPurchase.lines[index])))
   initialContract.terms.forEach((term) => { terms[term] = false })
   LEDGER_ITEMS.forEach((item) => { ledgers[item] = false })
-  budgetCap.value = PLAN_C_BUDGET_CAP
+  budgetCap.value = ''
   error.value = ''
 }
 </script>
@@ -173,18 +187,18 @@ function resetAll() {
       <template #default="{ leaf }">
         <template v-if="leaf === 'contract'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('contract')" @click="run('contract', checkContract)">
+            <button type="button" class="primary-button" @click="run('contract', checkContract)">
               生成合同金额
             </button>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">合同编号</span>
-              <input class="form-control locked" :value="initialContract.code" readonly />
+              <input class="form-control" :value="initialContract.code" />
             </label>
             <label class="form-item">
               <span class="form-label">履行供应商</span>
-              <input class="form-control locked" :value="initialContract.supplierId" readonly />
+              <input class="form-control" :value="initialContract.supplierId" />
             </label>
           </div>
           <table class="calc-table compact">
@@ -200,10 +214,10 @@ function resetAll() {
               <tr v-for="(line, index) in contract.lines" :key="line.id">
                 <th scope="row">{{ line.name }}<em class="row-unit">{{ line.unit }}</em></th>
                 <td>
-                  <input v-model.number="contractLines[index].quantity" type="number" min="0" step="1" :disabled="flow.isDone('contract')" />
+                  <input v-model.number="contractLines[index].quantity" type="number" min="0" step="1" />
                 </td>
                 <td>
-                  <input v-model.number="contractLines[index].price" type="number" min="0" step="1" :disabled="flow.isDone('contract')" />
+                  <input v-model.number="contractLines[index].price" type="number" min="0" step="1" />
                 </td>
                 <td class="col-total">{{ money(line.amount, 0) }} 元</td>
               </tr>
@@ -231,7 +245,7 @@ function resetAll() {
 
         <template v-else-if="leaf === 'direct'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('direct')" @click="run('direct', checkDirect)">
+            <button type="button" class="primary-button" @click="run('direct', checkDirect)">
               确认直采金额
             </button>
           </div>
@@ -248,10 +262,10 @@ function resetAll() {
               <tr v-for="(line, index) in direct.lines" :key="line.id">
                 <th scope="row">{{ line.name }}<em class="row-unit">{{ line.unit }}</em></th>
                 <td>
-                  <input v-model.number="directLines[index].quantity" type="number" min="0" step="1" :disabled="flow.isDone('direct')" />
+                  <input v-model.number="directLines[index].quantity" type="number" min="0" step="1" />
                 </td>
                 <td>
-                  <input v-model.number="directLines[index].price" type="number" min="0" step="0.5" :disabled="flow.isDone('direct')" />
+                  <input v-model.number="directLines[index].price" type="number" min="0" step="0.5" />
                 </td>
                 <td class="col-total">{{ money(line.amount, 2) }} 元</td>
               </tr>
@@ -279,13 +293,13 @@ function resetAll() {
 
         <template v-else-if="leaf === 'terms'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('terms')" @click="run('terms', checkTerms)">
+            <button type="button" class="primary-button" @click="run('terms', checkTerms)">
               保存合同条款
             </button>
           </div>
           <div class="checkbox-group">
             <label v-for="term in initialContract.terms" :key="term" class="checkbox-item">
-              <input v-model="terms[term]" type="checkbox" :disabled="flow.isDone('terms')" />{{ term }}
+              <input v-model="terms[term]" type="checkbox" />{{ term }}
             </label>
           </div>
           <template v-if="flow.isDone('terms')">
@@ -303,13 +317,13 @@ function resetAll() {
 
         <template v-else-if="leaf === 'occupation'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('occupation')" @click="run('occupation', checkOccupation)">
+            <button type="button" class="primary-button" @click="run('occupation', checkOccupation)">
               测算占用率
             </button>
           </div>
           <div class="input-row">
             <label>C方案预算上限</label>
-            <input v-model.number="budgetCap" type="number" min="0" step="1000" :disabled="flow.isDone('occupation')" />
+            <input v-model.number="budgetCap" type="number" min="0" step="1000" />
             <span class="input-unit">元</span>
           </div>
           <div class="stat-grid">
@@ -357,13 +371,13 @@ function resetAll() {
 
         <template v-else-if="leaf === 'ledger'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('ledger')" @click="run('ledger', checkLedger)">
+            <button type="button" class="primary-button" @click="run('ledger', checkLedger)">
               提交核对结果
             </button>
           </div>
           <div class="checkbox-group">
             <label v-for="item in LEDGER_ITEMS" :key="item" class="checkbox-item">
-              <input v-model="ledgers[item]" type="checkbox" :disabled="flow.isDone('ledger')" />{{ item }}
+              <input v-model="ledgers[item]" type="checkbox" />{{ item }}
             </label>
           </div>
           <template v-if="flow.isDone('ledger')">
@@ -382,7 +396,7 @@ function resetAll() {
 
         <template v-else-if="leaf === 'approve'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('approve')" @click="run('approve', checkApprove)">
+            <button type="button" class="primary-button" @click="run('approve', checkApprove)">
               审批通过
             </button>
           </div>

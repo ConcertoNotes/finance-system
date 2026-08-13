@@ -5,9 +5,8 @@ import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
 import {
-  INSURANCE_WORKBOOK,
-  RESCUER_COUNT,
   coverageTiers,
   insuranceCriteria,
   insuranceProducts,
@@ -17,6 +16,7 @@ import { money, num } from '../../domain/format.js'
 
 const PAGES = ['quotes', 'rules', 'standard', 'weighted', 'decision']
 const flow = useTaskFlow('s1-t4', PAGES)
+const store = useFormPersist('s1-t4')
 
 const menu = [
   {
@@ -81,16 +81,38 @@ const typeRule = {
 const FUND_SOURCE = '政府财政拨款保障资金'
 const fundSources = [FUND_SOURCE, '限定性社会捐赠', '非限定性社会捐赠', '其他合规项目资金']
 
+function blankProduct(src) {
+  return {
+    id: src.id,
+    name: src.name,
+    premium: '',
+    death: '',
+    disability: '',
+    medical: '',
+    deductible: '',
+    waiting: '',
+    coverage: '',
+    documents: '',
+    settlementDays: '',
+  }
+}
+
 const activeId = ref('')
-const products = reactive(insuranceProducts.map((item) => ({ ...item })))
-const weights = reactive(Object.fromEntries(insuranceCriteria.map((c) => [c.key, Math.round(c.weight * 100)])))
-const headcount = ref(RESCUER_COUNT)
-const fundSource = ref(FUND_SOURCE)
-const selected = ref('B')
+const workbookName = ref('')
+const quoteCount = ref('')
+const products = reactive(insuranceProducts.map((item) => blankProduct(item)))
+const weights = reactive(Object.fromEntries(insuranceCriteria.map((c) => [c.key, ''])))
+const headcount = ref('')
+const fundSource = ref('')
+const selected = ref('')
 const error = ref('')
 
 function weightOf(key) {
   return (Number(weights[key]) || 0) / 100
+}
+
+function headcountNum() {
+  return Number(headcount.value) || 0
 }
 
 /** 送入评审引擎的报价：清洗掉编辑过程中出现的空值。 */
@@ -137,11 +159,12 @@ const breakdownTotal = computed(() => breakdown.value.reduce((sum, row) => sum +
 
 // 权重维持标准评分规则时采用评审引擎结论；学生调整权重后按现行权重重新定标。
 const decision = computed(() => {
-  const base = getInsuranceDecision(quotes.value, headcount.value)
+  const count = headcountNum()
+  const base = getInsuranceDecision(quotes.value, count)
   if (isStandardRule.value) return base
   const winner = weightedRows.value.find((row) => row.recommended)
   const product = quotes.value.find((item) => item.id === winner.id)
-  const totalPremium = product.premium * headcount.value
+  const totalPremium = (Number(product.premium) || 0) * count
   return {
     ...base,
     winner,
@@ -151,14 +174,20 @@ const decision = computed(() => {
       .filter((item) => item.id !== winner.id)
       .map((item) => ({
         ...item,
-        totalPremium: item.premium * headcount.value,
-        premiumGap: (item.premium - product.premium) * headcount.value,
+        totalPremium: (Number(item.premium) || 0) * count,
+        premiumGap: ((Number(item.premium) || 0) - (Number(product.premium) || 0)) * count,
       })),
-    conclusion: `选择${product.name}：按现行指标权重综合得分最高 ${winner.total.toFixed(2)} 分，人均保费 ${money(product.premium, 0)} 元/人，总保费 ${money(totalPremium, 0)} 元。`,
+    conclusion: `选择${product.name}：按现行指标权重综合得分最高 ${winner.total.toFixed(2)} 分，人均保费 ${money(Number(product.premium) || 0, 0)} 元/人，总保费 ${money(totalPremium, 0)} 元。`,
   }
 })
 
 const pendingPages = computed(() => PAGES.filter((id) => id !== 'decision' && !flow.isDone(id)))
+
+function snapshot() {
+  return { workbookName, quoteCount, products, weights, headcount, fundSource, selected }
+}
+
+store.restore(snapshot())
 
 function tierOf(product) {
   return coverageTiers.find((tier) => tier.match === product.coverage)
@@ -176,6 +205,7 @@ function save(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
@@ -198,18 +228,22 @@ function checkDecision() {
   if (pendingPages.value.length) {
     return `还有 ${pendingPages.value.length} 个功能页未办理，无法确定方案`
   }
-  if (!Number.isFinite(headcount.value) || headcount.value < 1) return '救援人数须为大于 0 的整数'
+  const count = Number(headcount.value)
+  if (!Number.isFinite(count) || count < 1) return '救援人数须为大于 0 的整数'
   if (fundSource.value !== FUND_SOURCE) return `救援人员保险支出须由${FUND_SOURCE}列支，资金用途校验未通过`
   return ''
 }
 
 function resetAll() {
   flow.reset()
-  products.forEach((item, index) => Object.assign(item, insuranceProducts[index]))
-  insuranceCriteria.forEach((c) => { weights[c.key] = Math.round(c.weight * 100) })
-  headcount.value = RESCUER_COUNT
-  fundSource.value = FUND_SOURCE
-  selected.value = 'B'
+  store.clear()
+  workbookName.value = ''
+  quoteCount.value = ''
+  products.forEach((item, index) => Object.assign(item, blankProduct(insuranceProducts[index])))
+  insuranceCriteria.forEach((c) => { weights[c.key] = '' })
+  headcount.value = ''
+  fundSource.value = ''
+  selected.value = ''
   error.value = ''
 }
 </script>
@@ -230,17 +264,17 @@ function resetAll() {
         <!-- 采购管理 → 保险管理 → 保险方案比选 → 录入产品报价 -->
         <template v-if="leaf === 'quotes'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('quotes')"
+            <button type="button" class="primary-button"
               @click="save('quotes', checkQuotes)">保存</button>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">报价文件</span>
-              <input class="form-control locked" :value="INSURANCE_WORKBOOK" readonly />
+              <input v-model="workbookName" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label">报价家数</span>
-              <input class="form-control locked" :value="`${products.length} 家`" readonly />
+              <input v-model="quoteCount" class="form-control" />
             </label>
           </div>
           <div class="score-table-wrap">
@@ -259,13 +293,12 @@ function resetAll() {
                   <td v-for="p in products" :key="p.id">
                     <input
                       v-if="field.type === 'number'"
-                      v-model.number="p[field.key]"
+                      v-model="p[field.key]"
                       type="number"
                       min="0"
                       :step="field.step"
-                      :disabled="flow.isDone('quotes')"
                     />
-                    <span v-else>{{ p[field.key] }}</span>
+                    <input v-else v-model="p[field.key]" type="text" />
                   </td>
                 </tr>
               </tbody>
@@ -299,7 +332,7 @@ function resetAll() {
         <!-- 基础设置 → 评分规则 → 指标权重配置 -->
         <template v-else-if="leaf === 'rules'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('rules')"
+            <button type="button" class="primary-button"
               @click="save('rules', checkRules)">保存</button>
           </div>
           <table class="calc-table compact">
@@ -318,12 +351,11 @@ function resetAll() {
                 <td>{{ typeRule[c.type] }}</td>
                 <td>
                   <input
-                    v-model.number="weights[c.key]"
+                    v-model="weights[c.key]"
                     type="number"
                     min="0"
                     max="100"
                     step="1"
-                    :disabled="flow.isDone('rules')"
                   />
                 </td>
               </tr>
@@ -352,7 +384,7 @@ function resetAll() {
           </table>
           <template v-if="flow.isDone('rules')">
             <p class="sys-toast" :class="{ warn: !weightBalanced }">
-              {{ insuranceCriteria.length }} 项指标权重合计 {{ num(weightTotal, 2) }}%，{{
+              {{ insuranceCriteria.length }} 项指标权重合计 {{ num(weightTotal, 2)}%，{{
                 weightBalanced ? '评分规则已生效' : '偏离 100%，下方评分结果仅供试算'
               }}。
             </p>
@@ -374,7 +406,7 @@ function resetAll() {
         <!-- 保险评审 → 标准分计算 -->
         <template v-else-if="leaf === 'standard'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('standard')"
+            <button type="button" class="primary-button"
               @click="save('standard')">保存</button>
           </div>
           <ul class="formula-list">
@@ -422,7 +454,7 @@ function resetAll() {
         <!-- 保险评审 → 加权综合得分 -->
         <template v-else-if="leaf === 'weighted'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('weighted')"
+            <button type="button" class="primary-button"
               @click="save('weighted')">保存</button>
           </div>
           <ul class="formula-list">
@@ -463,24 +495,24 @@ function resetAll() {
         <!-- 保险评审 → 方案确定与保费测算 -->
         <template v-else-if="leaf === 'decision'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('decision')"
+            <button type="button" class="primary-button"
               @click="save('decision', checkDecision)">保存</button>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">救援人数</span>
               <input
-                v-model.number="headcount"
+                v-model="headcount"
                 class="form-control"
                 type="number"
                 min="1"
                 step="1"
-                :disabled="flow.isDone('decision')"
               />
             </label>
             <label class="form-item">
               <span class="form-label required">支付资金来源</span>
-              <select v-model="fundSource" class="form-control" :disabled="flow.isDone('decision')">
+              <select v-model="fundSource" class="form-control">
+                <option value="">请选择</option>
                 <option v-for="item in fundSources" :key="item">{{ item }}</option>
               </select>
             </label>
@@ -488,8 +520,8 @@ function resetAll() {
           <template v-if="flow.isDone('decision')">
             <dl class="block-fields">
               <div class="field-row"><dt>中选方案</dt><dd>{{ decision.product.name }}</dd></div>
-              <div class="field-row"><dt>人均保费</dt><dd>{{ money(decision.product.premium, 0) }} 元</dd></div>
-              <div class="field-row"><dt>总保费</dt><dd>{{ money(decision.totalPremium, 0) }} 元</dd></div>
+              <div class="field-row"><dt>人均保费</dt><dd>{{ money(Number(decision.product.premium) || 0, 0) }} 元</dd></div>
+              <div class="field-row"><dt>总保费</dt><dd>{{ money(Number(decision.totalPremium) || 0, 0) }} 元</dd></div>
               <div class="field-row"><dt>支付资金来源</dt><dd>{{ fundSource }}</dd></div>
             </dl>
             <table class="calc-table compact">
@@ -504,9 +536,9 @@ function resetAll() {
               <tbody>
                 <tr v-for="alt in decision.alternatives" :key="alt.id">
                   <th scope="row">{{ alt.name }}</th>
-                  <td>{{ money(alt.premium, 0) }} 元</td>
-                  <td>{{ money(alt.totalPremium, 0) }} 元</td>
-                  <td>{{ alt.premiumGap > 0 ? '+' : '' }}{{ money(alt.premiumGap, 0) }} 元</td>
+                  <td>{{ money(Number(alt.premium) || 0, 0) }} 元</td>
+                  <td>{{ money(Number(alt.totalPremium) || 0, 0) }} 元</td>
+                  <td>{{ alt.premiumGap > 0 ? '+' : '' }}{{ money(Number(alt.premiumGap) || 0, 0) }} 元</td>
                 </tr>
               </tbody>
             </table>

@@ -5,12 +5,14 @@ import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
-import { priceAlertThresholds, priceQuotes } from '../../data/procurement.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
+import { priceQuotes } from '../../data/procurement.js'
 import { calculatePriceBaseline, getDirectControlPrices } from '../../domain/procurement.js'
 import { money, num, signedPercent } from '../../domain/format.js'
 
 const PAGES = ['collect', 'caliber', 'stats', 'baseline', 'deviation', 'platform']
 const flow = useTaskFlow('s2-t2', PAGES)
+const store = useFormPersist('s2-t2')
 
 const menu = [
   {
@@ -75,11 +77,35 @@ const OUTPUTS = [
   '《报价口径校验单》',
 ]
 
-const quotes = reactive(Object.fromEntries(priceQuotes.map((item) => [item.id, { ...item }])))
+function blankQuote(item) {
+  const next = { ...item, history: '', market: '' }
+  if (item.channel === 'contract') {
+    next.s1 = ''
+    next.s2 = ''
+    next.s3 = ''
+  } else {
+    next.control = ''
+  }
+  return next
+}
+
+function numericQuote(item) {
+  return {
+    ...item,
+    history: Number(item.history) || 0,
+    market: Number(item.market) || 0,
+    s1: Number(item.s1) || 0,
+    s2: Number(item.s2) || 0,
+    s3: Number(item.s3) || 0,
+    control: Number(item.control) || 0,
+  }
+}
+
+const quotes = reactive(Object.fromEntries(priceQuotes.map((item) => [item.id, blankQuote(item)])))
 const caliber = reactive(Object.fromEntries(CALIBER_RULES.map((rule) => [rule, false])))
 const thresholds = reactive({
-  yellow: priceAlertThresholds.yellow * 100,
-  red: priceAlertThresholds.red * 100,
+  yellow: '',
+  red: '',
 })
 
 const activeId = ref('')
@@ -87,17 +113,24 @@ const error = ref('')
 const focus = ref('tent')
 
 const quoteList = computed(() => priceQuotes.map((item) => quotes[item.id]))
+const numericQuotes = computed(() => quoteList.value.map(numericQuote))
 const contractQuotes = computed(() => quoteList.value.filter((item) => item.channel === 'contract'))
 const directQuotes = computed(() => getDirectControlPrices(quoteList.value))
-const rows = computed(() => calculatePriceBaseline(quoteList.value))
+const rows = computed(() => calculatePriceBaseline(numericQuotes.value))
 const current = computed(() => rows.value.find((row) => row.id === focus.value) ?? rows.value[0])
 const chosenCaliber = computed(() => CALIBER_RULES.filter((rule) => caliber[rule]))
 const pendingPages = computed(() => PAGES.filter((id) => id !== 'platform' && !flow.isDone(id)))
 
+store.restore({ quotes, caliber, thresholds })
+
+function snapshot() {
+  return { quotes, caliber, thresholds }
+}
+
 function level(rate) {
   const scale = Math.abs(rate) * 100
-  if (scale >= thresholds.red) return 'red'
-  if (scale >= thresholds.yellow) return 'yellow'
+  if (scale >= (Number(thresholds.red) || 0)) return 'red'
+  if (scale >= (Number(thresholds.yellow) || 0)) return 'yellow'
   return 'normal'
 }
 
@@ -127,6 +160,7 @@ function run(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
@@ -161,10 +195,11 @@ function checkPlatform() {
 
 function resetAll() {
   flow.reset()
-  priceQuotes.forEach((item) => Object.assign(quotes[item.id], item))
+  store.clear()
+  priceQuotes.forEach((item) => Object.assign(quotes[item.id], blankQuote(item)))
   CALIBER_RULES.forEach((rule) => { caliber[rule] = false })
-  thresholds.yellow = priceAlertThresholds.yellow * 100
-  thresholds.red = priceAlertThresholds.red * 100
+  thresholds.yellow = ''
+  thresholds.red = ''
   focus.value = 'tent'
   error.value = ''
 }
@@ -186,7 +221,7 @@ function resetAll() {
         <!-- 采购管理 → 价格管理 → 价格数据采集 -->
         <template v-if="leaf === 'collect'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('collect')" @click="run('collect', checkCollect)">
+            <button type="button" class="primary-button" @click="run('collect', checkCollect)">
               采集价格数据
             </button>
           </div>
@@ -199,15 +234,15 @@ function resetAll() {
               <tbody>
                 <tr v-for="row in quoteList" :key="row.id">
                   <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
-                  <td><input v-model.number="row.history" type="number" min="0" step="0.5" :disabled="flow.isDone('collect')" /></td>
-                  <td><input v-model.number="row.market" type="number" min="0" step="0.5" :disabled="flow.isDone('collect')" /></td>
+                  <td><input v-model.number="row.history" type="number" min="0" step="0.5" /></td>
+                  <td><input v-model.number="row.market" type="number" min="0" step="0.5" /></td>
                   <template v-if="row.channel === 'contract'">
-                    <td><input v-model.number="row.s1" type="number" min="0" step="0.5" :disabled="flow.isDone('collect')" /></td>
-                    <td><input v-model.number="row.s2" type="number" min="0" step="0.5" :disabled="flow.isDone('collect')" /></td>
-                    <td><input v-model.number="row.s3" type="number" min="0" step="0.5" :disabled="flow.isDone('collect')" /></td>
+                    <td><input v-model.number="row.s1" type="number" min="0" step="0.5" /></td>
+                    <td><input v-model.number="row.s2" type="number" min="0" step="0.5" /></td>
+                    <td><input v-model.number="row.s3" type="number" min="0" step="0.5" /></td>
                   </template>
                   <td v-else colspan="3">
-                    <input v-model.number="row.control" type="number" min="0" step="0.5" :disabled="flow.isDone('collect')" />
+                    <input v-model.number="row.control" type="number" min="0" step="0.5" />
                     <em class="row-unit">应急零售/框架协议直采控制价，不纳入 S1、S2、S3 供应商评分</em>
                   </td>
                 </tr>
@@ -234,14 +269,14 @@ function resetAll() {
         <!-- 采购管理 → 价格管理 → 价格口径统一 -->
         <template v-else-if="leaf === 'caliber'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('caliber')" @click="run('caliber', checkCaliber)">
+            <button type="button" class="primary-button" @click="run('caliber', checkCaliber)">
               确认口径
             </button>
           </div>
           <p class="form-desc">口径不统一将导致比价失真，须逐条确认后方可进入基准测算。</p>
           <div class="checkbox-group">
             <label v-for="rule in CALIBER_RULES" :key="rule" class="checkbox-item">
-              <input v-model="caliber[rule]" type="checkbox" :disabled="flow.isDone('caliber')" />{{ rule }}
+              <input v-model="caliber[rule]" type="checkbox" />{{ rule }}
             </label>
           </div>
           <template v-if="flow.isDone('caliber')">
@@ -255,7 +290,7 @@ function resetAll() {
         <!-- 价格分析 → 统计测算 → 均价中位数区间 -->
         <template v-else-if="leaf === 'stats'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('stats')" @click="run('stats')">计算报价分布</button>
+            <button type="button" class="primary-button" @click="run('stats')">计算报价分布</button>
           </div>
           <p class="form-desc">样本为 S1、S2、S3 三家有效报价。平均价反映整体报价水平，中位数削弱极端值影响，报价区间用于判断离散程度。</p>
           <template v-if="flow.isDone('stats')">
@@ -288,7 +323,7 @@ function resetAll() {
         <!-- 价格分析 → 基准管理 → 综合价格基准 -->
         <template v-else-if="leaf === 'baseline'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('baseline')" @click="run('baseline')">生成基准价</button>
+            <button type="button" class="primary-button" @click="run('baseline')">生成基准价</button>
           </div>
           <p class="block-formula">综合基准价 = (历史采购价 + 市场参考价 + S1有效报价 + S2有效报价) / 4</p>
           <p class="form-desc">为避免异常高价拉高基准，S3 报价不计入基准样本。基准样本刻意剔除最高报价，使基准价贴近合理成本水平，而不是被单家高报价带偏。</p>
@@ -322,7 +357,7 @@ function resetAll() {
         <!-- 价格分析 → 偏差分析 → 价格偏差率 -->
         <template v-else-if="leaf === 'deviation'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('deviation')" @click="run('deviation')">计算偏差率</button>
+            <button type="button" class="primary-button" @click="run('deviation')">计算偏差率</button>
           </div>
           <p class="form-desc">切换物资可查看该物资逐家供应商的偏差演算。</p>
           <div class="pill-group">
@@ -366,19 +401,19 @@ function resetAll() {
         <!-- 价格分析 → 成果发布 → 价格基准上架 -->
         <template v-else-if="leaf === 'platform'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('platform')" @click="run('platform', checkPlatform)">
+            <button type="button" class="primary-button" @click="run('platform', checkPlatform)">
               写入控制平台
             </button>
           </div>
           <p class="form-desc">阈值写入后，合同变更、紧急分单或商超临时补货均须重新校验。须其余功能页办理完成后，方可上架。</p>
           <div class="input-row">
             <label>黄色预警阈值</label>
-            <input v-model.number="thresholds.yellow" type="number" min="0" step="0.5" :disabled="flow.isDone('platform')" />
+            <input v-model.number="thresholds.yellow" type="number" min="0" step="0.5" />
             <span class="input-unit">%</span>
           </div>
           <div class="input-row">
             <label>红色预警阈值</label>
-            <input v-model.number="thresholds.red" type="number" min="0" step="0.5" :disabled="flow.isDone('platform')" />
+            <input v-model.number="thresholds.red" type="number" min="0" step="0.5" />
             <span class="input-unit">%</span>
           </div>
           <template v-if="flow.isDone('platform')">

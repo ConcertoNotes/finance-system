@@ -5,9 +5,11 @@ import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
 
 const PAGES = ['new-ledger', 'subject-config', 'fund-category', 'grid-manage', 'link-rule', 'role-auth', 'risk-rule', 'ledger-activate']
 const flow = useTaskFlow('s1-t1', PAGES)
+const store = useFormPersist('s1-t1')
 
 const menu = [
   {
@@ -56,13 +58,13 @@ const activeId = ref('')
 const error = ref('')
 
 const form = reactive({
-  name: '洪涝应急救援专项账套',
-  code: 'HJ-2026-001',
-  projectType: '应急救援专项',
-  accountingMode: '独立专项辅助核算',
-  startDate: '灾情发生当日',
-  currency: '人民币',
-  period: '当前会计期间',
+  name: '',
+  code: '',
+  projectType: '',
+  accountingMode: '',
+  startDate: '',
+  currency: '',
+  period: '',
 })
 
 const subjectNames = ['捐赠收入', '应急采购支出', '运输支出', '保险支出', '设备及救援保障支出', '其他应急救援支出']
@@ -116,6 +118,12 @@ const strictList = computed(() => fundNames.filter((n) => strictFunds[n]))
 const enabledRules = computed(() => controlRules.filter((r) => rules[r.id]))
 const pendingPages = computed(() => PAGES.filter((p) => p !== 'ledger-activate' && !flow.isDone(p)))
 
+store.restore({ form, subjects, aux, strictFunds, grids, rules })
+
+function snapshot() {
+  return { form, subjects, aux, strictFunds, grids, rules }
+}
+
 function save(id, check) {
   const message = check ? check() : ''
   if (message) {
@@ -123,11 +131,22 @@ function save(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
 function resetAll() {
   flow.reset()
+  store.clear()
+  Object.assign(form, {
+    name: '',
+    code: '',
+    projectType: '',
+    accountingMode: '',
+    startDate: '',
+    currency: '',
+    period: '',
+  })
   subjectNames.forEach((n) => { subjects[n] = false })
   auxNames.forEach((n) => { aux[n] = false })
   fundNames.forEach((n) => { strictFunds[n] = false })
@@ -153,49 +172,49 @@ function resetAll() {
         <!-- 财务管理 → 专项项目管理 → 专项账套管理 → 新增账套 -->
         <template v-if="leaf === 'new-ledger'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('new-ledger')"
+            <button type="button" class="primary-button"
               @click="save('new-ledger', () => (form.name.trim() && form.code.trim() ? '' : '账套名称与项目编码为必填项'))">保存</button>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">账套名称</span>
-              <input v-model="form.name" class="form-control" :disabled="flow.isDone('new-ledger')" />
+              <input v-model="form.name" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label required">项目编码</span>
-              <input v-model="form.code" class="form-control" :disabled="flow.isDone('new-ledger')" />
+              <input v-model="form.code" class="form-control" />
             </label>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">项目类型</span>
-              <select v-model="form.projectType" class="form-control" :disabled="flow.isDone('new-ledger')">
-                <option>应急救援专项</option><option>日常业务项目</option>
+              <select v-model="form.projectType" class="form-control">
+                <option value="">请选择</option><option>应急救援专项</option><option>日常业务项目</option>
               </select>
             </label>
             <label class="form-item">
               <span class="form-label">核算方式</span>
-              <select v-model="form.accountingMode" class="form-control" :disabled="flow.isDone('new-ledger')">
-                <option>独立专项辅助核算</option><option>并入日常核算</option>
+              <select v-model="form.accountingMode" class="form-control">
+                <option value="">请选择</option><option>独立专项辅助核算</option><option>并入日常核算</option>
               </select>
             </label>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">启用日期</span>
-              <input v-model="form.startDate" class="form-control" :disabled="flow.isDone('new-ledger')" />
+              <input v-model="form.startDate" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label">核算币种</span>
-              <select v-model="form.currency" class="form-control" :disabled="flow.isDone('new-ledger')">
-                <option>人民币</option>
+              <select v-model="form.currency" class="form-control">
+                <option value="">请选择</option><option>人民币</option>
               </select>
             </label>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">会计期间</span>
-              <input v-model="form.period" class="form-control" :disabled="flow.isDone('new-ledger')" />
+              <input v-model="form.period" class="form-control" />
             </label>
             <div class="form-item" />
           </div>
@@ -207,19 +226,19 @@ function resetAll() {
         <!-- 基础设置 → 会计科目 → 专项科目配置 -->
         <template v-else-if="leaf === 'subject-config'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('subject-config')"
+            <button type="button" class="primary-button"
               @click="save('subject-config', () => (chosenSubjects.length === 6 && chosenAux.length === 4 ? '' : '需勾选全部 6 个专项科目，辅助核算须同时包含项目、网格、资金来源、物资类别'))">保存</button>
           </div>
           <p class="form-desc">在现有会计科目体系基础上勾选需要挂接专项辅助核算标签的科目，不另造一套科目。</p>
           <div class="checkbox-group">
             <label v-for="n in subjectNames" :key="n" class="checkbox-item">
-              <input v-model="subjects[n]" type="checkbox" :disabled="flow.isDone('subject-config')" />{{ n }}
+              <input v-model="subjects[n]" type="checkbox" />{{ n }}
             </label>
           </div>
           <p class="form-desc">辅助核算维度</p>
           <div class="checkbox-group">
             <label v-for="n in auxNames" :key="n" class="checkbox-item">
-              <input v-model="aux[n]" type="checkbox" :disabled="flow.isDone('subject-config')" />{{ n }}
+              <input v-model="aux[n]" type="checkbox" />{{ n }}
             </label>
           </div>
           <dl class="block-fields">
@@ -236,7 +255,7 @@ function resetAll() {
         <!-- 专项账套 → 资金来源管理 → 新增资金类别 -->
         <template v-else-if="leaf === 'fund-category'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('fund-category')"
+            <button type="button" class="primary-button"
               @click="save('fund-category', () => (strictFunds['限定性社会捐赠'] ? '' : '限定性捐赠必须开启用途强制校验'))">保存</button>
           </div>
           <table class="calc-table compact">
@@ -246,7 +265,7 @@ function resetAll() {
                 <th scope="row">{{ n }}</th>
                 <td>
                   <label class="checkbox-item inline">
-                    <input v-model="strictFunds[n]" type="checkbox" :disabled="flow.isDone('fund-category')" />
+                    <input v-model="strictFunds[n]" type="checkbox" />
                     {{ strictFunds[n] ? '开启' : '关闭' }}
                   </label>
                 </td>
@@ -265,14 +284,14 @@ function resetAll() {
         <!-- 基础设置 → 辅助核算 → 网格管理 -->
         <template v-else-if="leaf === 'grid-manage'">
           <div class="sys-toolbar">
-            <button type="button" class="secondary-button" :disabled="flow.isDone('grid-manage')"
+            <button type="button" class="secondary-button"
               @click="gridNames.forEach((n) => (grids[n] = true))">全选甲1—甲9</button>
-            <button type="button" class="primary-button" :disabled="flow.isDone('grid-manage')"
+            <button type="button" class="primary-button"
               @click="save('grid-manage', () => (chosenGrids.length === 9 ? '' : `还有 ${9 - chosenGrids.length} 个网格未新增`))">保存</button>
           </div>
           <div class="checkbox-group tight">
             <label v-for="n in gridNames" :key="n" class="checkbox-item">
-              <input v-model="grids[n]" type="checkbox" :disabled="flow.isDone('grid-manage')" />{{ n }}
+              <input v-model="grids[n]" type="checkbox" />{{ n }}
             </label>
           </div>
           <p class="block-path">辅助核算层级：洪涝应急救援专项 → 网格 → 物资/费用项目</p>
@@ -285,7 +304,7 @@ function resetAll() {
         <!-- 专项账套 → 业务财务映射 → 联动规则配置 -->
         <template v-else-if="leaf === 'link-rule'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('link-rule')" @click="save('link-rule')">保存并启用</button>
+            <button type="button" class="primary-button" @click="save('link-rule')">保存并启用</button>
           </div>
           <ol class="chain-list">
             <li v-for="row in chainRows" :key="row.step">
@@ -304,8 +323,9 @@ function resetAll() {
         <!-- 系统管理 → 用户权限 → 角色权限配置 -->
         <template v-else-if="leaf === 'role-auth'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('role-auth')" @click="save('role-auth')">保存权限</button>
+            <button type="button" class="primary-button" @click="save('role-auth')">确认权限配置</button>
           </div>
+          <p class="form-desc">岗位权限由系统预置，不可在本页修改。</p>
           <div class="score-table-wrap">
             <table class="calc-table compact">
               <thead><tr><th>角色</th><th>权限</th><th>限制</th></tr></thead>
@@ -324,16 +344,16 @@ function resetAll() {
         <!-- 专项账套 → 风控中心 → 规则配置 -->
         <template v-else-if="leaf === 'risk-rule'">
           <div class="sys-toolbar">
-            <button type="button" class="secondary-button" :disabled="flow.isDone('risk-rule')"
+            <button type="button" class="secondary-button"
               @click="controlRules.forEach((r) => (rules[r.id] = true))">全部启用</button>
-            <button type="button" class="primary-button" :disabled="flow.isDone('risk-rule')"
+            <button type="button" class="primary-button"
               @click="save('risk-rule', () => (enabledRules.length === 5 ? '' : `还有 ${5 - enabledRules.length} 项控制规则未启用`))">启用规则</button>
           </div>
           <table class="calc-table compact">
             <thead><tr><th style="width: 56px">启用</th><th>规则</th><th>触发条件</th><th>系统动作</th></tr></thead>
             <tbody>
               <tr v-for="rule in controlRules" :key="rule.id">
-                <td><input v-model="rules[rule.id]" type="checkbox" :disabled="flow.isDone('risk-rule')" /></td>
+                <td><input v-model="rules[rule.id]" type="checkbox" /></td>
                 <th scope="row">{{ rule.id }}<em class="row-unit">{{ rule.name }}</em></th>
                 <td>{{ rule.trigger }}</td>
                 <td>{{ rule.action }}</td>
@@ -351,7 +371,7 @@ function resetAll() {
         <!-- 专项账套 → 账套启用校验 -->
         <template v-else-if="leaf === 'ledger-activate'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('ledger-activate')"
+            <button type="button" class="primary-button"
               @click="save('ledger-activate', () => (pendingPages.length ? `还有 ${pendingPages.length} 个功能页未办理，无法通过校验` : ''))">
               校验测试并正式启用
             </button>
@@ -365,7 +385,7 @@ function resetAll() {
             <ul class="sys-lines">
               <li v-for="item in checkItems" :key="item">{{ item }}：通过</li>
             </ul>
-            <p class="sys-toast">专项账套配置校验通过 · 洪涝应急救援专项账套 —— 已启用。</p>
+            <p class="sys-toast">专项账套配置校验通过 · {{ form.name || '专项账套' }} —— 已启用。</p>
             <div class="calc-result">
               <p class="result-line">
                 后续每笔救灾资金都必须经过预算控制、资金用途匹配和业务凭证关联后才能进入支付流程，

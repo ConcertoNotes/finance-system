@@ -4,8 +4,8 @@ import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
 import {
-  COST_DRIVER_WORKBOOK,
   budgetParameters,
   coreFormulas,
   disasterGrids,
@@ -18,6 +18,7 @@ import { money, num, percent } from '../../domain/format.js'
 
 const PAGES = ['grids', 'params', 'convert', 'equipment', 'summary']
 const flow = useTaskFlow('s1-t5', PAGES)
+const store = useFormPersist('s1-t5')
 
 const menu = [
   {
@@ -59,8 +60,6 @@ function collectLeaves(nodes) {
 }
 collectLeaves(menu)
 
-const DATA_STATUS = '前方灾情传递'
-
 const gridFields = [
   { key: 'relocated', label: '转移安置人数', unit: '人', step: '1' },
   { key: 'special', label: '特殊人群数', unit: '人', step: '1' },
@@ -68,16 +67,23 @@ const gridFields = [
   { key: 'quilts', label: '棉被需求量', unit: '床', step: '1' },
 ]
 
-const editableKeys = ['shelterDays', 'foodRate', 'waterRate', 'tentPrice', 'quiltPrice', 'specialCare', 'transportRate']
-const lockedKeys = ['tentCapacity', 'vehiclesPerGrid']
-const paramCells = budgetParameters
-  .filter((p) => editableKeys.includes(p.key) || lockedKeys.includes(p.key))
-  .map((p) => ({ ...p, locked: lockedKeys.includes(p.key) }))
+const paramKeys = ['shelterDays', 'foodRate', 'waterRate', 'tentPrice', 'tentCapacity', 'quiltPrice', 'specialCare', 'transportRate', 'vehiclesPerGrid']
+const paramCells = budgetParameters.filter((p) => paramKeys.includes(p.key))
 
 const activeId = ref('')
-const grids = reactive(disasterGrids.map((grid) => ({ ...grid })))
-const paramState = reactive({ ...baseParams })
+const workbookName = ref('')
+const dataStatus = ref('')
+const grids = reactive(disasterGrids.map((grid) => ({
+  id: grid.id,
+  relocated: '',
+  special: '',
+  distance: '',
+  quilts: '',
+})))
+const paramState = reactive(Object.fromEntries(Object.keys(baseParams).map((key) => [key, ''])))
 const error = ref('')
+
+store.restore({ grids, paramState, workbookName, dataStatus })
 
 const pendingPages = computed(() => PAGES.filter((p) => p !== 'summary' && !flow.isDone(p)))
 
@@ -104,6 +110,10 @@ function amountOf(item) {
   return activeParams.value[item.countKey] * activeParams.value[item.priceKey]
 }
 
+function snapshot() {
+  return { grids, paramState, workbookName, dataStatus }
+}
+
 function run(id, check) {
   const message = check ? check() : ''
   if (message) {
@@ -111,6 +121,7 @@ function run(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
@@ -124,7 +135,7 @@ function checkGrids() {
 }
 
 function checkParams() {
-  const invalid = editableKeys.find((key) => !(Number(paramState[key]) > 0))
+  const invalid = paramKeys.find((key) => !(Number(paramState[key]) > 0))
   if (!invalid) return ''
   const cell = paramCells.find((p) => p.key === invalid)
   return `${cell.name}须为大于 0 的数值`
@@ -151,8 +162,16 @@ function restoreHistoric() {
 
 function resetAll() {
   flow.reset()
-  grids.forEach((grid, index) => Object.assign(grid, disasterGrids[index]))
-  Object.assign(paramState, baseParams)
+  store.clear()
+  workbookName.value = ''
+  dataStatus.value = ''
+  grids.forEach((grid) => {
+    grid.relocated = ''
+    grid.special = ''
+    grid.distance = ''
+    grid.quilts = ''
+  })
+  Object.assign(paramState, Object.fromEntries(Object.keys(baseParams).map((key) => [key, ''])))
   error.value = ''
 }
 </script>
@@ -173,17 +192,17 @@ function resetAll() {
         <!-- 预算管理 → 应急预算编制 → 灾情数据载入 -->
         <template v-if="leaf === 'grids'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('grids')"
+            <button type="button" class="primary-button"
               @click="run('grids', checkGrids)">载入灾情数据</button>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">灾情数据文件</span>
-              <input class="form-control" :value="COST_DRIVER_WORKBOOK" readonly />
+              <input v-model="workbookName" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label">数据状态</span>
-              <input class="form-control" :value="DATA_STATUS" readonly />
+              <input v-model="dataStatus" class="form-control" />
             </label>
           </div>
           <table class="calc-table">
@@ -198,15 +217,14 @@ function resetAll() {
               <tr v-for="grid in grids" :key="grid.id">
                 <th scope="row">{{ grid.id }}</th>
                 <td v-for="field in gridFields" :key="field.key">
-                  <input v-model.number="grid[field.key]" type="number" min="0" :step="field.step"
-                    :disabled="flow.isDone('grids')" />
+                  <input v-model.number="grid[field.key]" type="number" min="0" :step="field.step" />
                 </td>
-                <td>{{ DATA_STATUS }}</td>
+                <td>{{ dataStatus }}</td>
               </tr>
             </tbody>
           </table>
           <template v-if="flow.isDone('grids')">
-            <p class="sys-toast">{{ grids.length }} / {{ grids.length }} 个网格灾情数据载入完成，数据来源：{{ DATA_STATUS }}。</p>
+            <p class="sys-toast">{{ grids.length }} / {{ grids.length }} 个网格灾情数据载入完成，数据来源：{{ dataStatus }}。</p>
             <dl class="block-fields">
               <div class="field-row"><dt>转移安置人数</dt><dd>{{ num(summary.totals.relocated, 0) }} 人</dd></div>
               <div class="field-row"><dt>特殊人群数</dt><dd>{{ num(summary.totals.special, 0) }} 人</dd></div>
@@ -219,19 +237,17 @@ function resetAll() {
         <!-- 基础设置 → 预算参数 → 保障标准配置 -->
         <template v-else-if="leaf === 'params'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('params')"
+            <button type="button" class="primary-button"
               @click="restoreHistoric">恢复历史采购价</button>
-            <button type="button" class="primary-button" :disabled="flow.isDone('params')"
+            <button type="button" class="primary-button"
               @click="run('params', checkParams)">保存参数</button>
           </div>
           <div class="param-grid">
             <label v-for="p in paramCells" :key="p.key" class="form-item">
               <span class="form-label">{{ p.name }}（{{ p.unit }}）</span>
-              <input v-model.number="paramState[p.key]" class="form-control" type="number" min="0" step="0.5"
-                :readonly="p.locked" :disabled="flow.isDone('params')" />
+              <input v-model.number="paramState[p.key]" class="form-control" type="number" min="0" step="0.5" />
             </label>
           </div>
-          <p class="sys-toast">每顶帐篷容纳人数与每网格配车为平台统一配置，不可修改。</p>
           <template v-if="flow.isDone('params')">
             <p class="sys-toast">预算参数保存成功，测算口径采用历史采购价标准。</p>
             <table class="calc-table">
@@ -253,7 +269,7 @@ function resetAll() {
         <!-- 预算测算 → 成本动因转换 -->
         <template v-else-if="leaf === 'convert'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('convert')"
+            <button type="button" class="primary-button"
               @click="run('convert')">执行转换</button>
           </div>
           <ul class="formula-list">
@@ -303,7 +319,7 @@ function resetAll() {
         <!-- 预算测算 → 保险及设备预算 -->
         <template v-else-if="leaf === 'equipment'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('equipment')"
+            <button type="button" class="primary-button"
               @click="run('equipment', checkEquipment)">测算</button>
           </div>
           <table class="calc-table">
@@ -318,18 +334,14 @@ function resetAll() {
             <tbody>
               <tr>
                 <th scope="row">救援人员保险（人 × 元/人）</th>
-                <td><input v-model.number="paramState.rescuers" type="number" min="0" step="1"
-                  :disabled="flow.isDone('equipment')" /></td>
-                <td><input v-model.number="paramState.insuranceRate" type="number" min="0" step="10"
-                  :disabled="flow.isDone('equipment')" /></td>
+                <td><input v-model.number="paramState.rescuers" type="number" min="0" step="1" /></td>
+                <td><input v-model.number="paramState.insuranceRate" type="number" min="0" step="10" /></td>
                 <td>{{ money(summary.insuranceBudget, 0) }}</td>
               </tr>
               <tr v-for="item in equipmentItems" :key="item.name">
                 <th scope="row">{{ item.name }}</th>
-                <td><input v-model.number="paramState[item.countKey]" type="number" min="0" step="1"
-                  :disabled="flow.isDone('equipment')" /></td>
-                <td><input v-model.number="paramState[item.priceKey]" type="number" min="0" step="10"
-                  :disabled="flow.isDone('equipment')" /></td>
+                <td><input v-model.number="paramState[item.countKey]" type="number" min="0" step="1" /></td>
+                <td><input v-model.number="paramState[item.priceKey]" type="number" min="0" step="10" /></td>
                 <td>{{ money(amountOf(item), 0) }}</td>
               </tr>
             </tbody>
@@ -373,7 +385,7 @@ function resetAll() {
         <!-- 预算测算 → 预算汇总生成 -->
         <template v-else-if="leaf === 'summary'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('summary')"
+            <button type="button" class="primary-button"
               @click="run('summary', checkSummary)">生成汇总</button>
           </div>
           <ul class="formula-list">

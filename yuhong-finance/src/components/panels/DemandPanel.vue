@@ -5,18 +5,19 @@ import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
 import {
   demandExcelFormula,
   demandFormula,
   materialDemands,
   priorityOrder,
-  shelterPlan,
 } from '../../data/procurement.js'
 import { calculateNetDemand } from '../../domain/procurement.js'
 import { num } from '../../domain/format.js'
 
 const PAGES = ['shelter', 'tent', 'others', 'worksheet', 'route']
 const flow = useTaskFlow('s2-t1', PAGES)
+const store = useFormPersist('s2-t1')
 
 const menu = [
   {
@@ -56,15 +57,29 @@ const error = ref('')
 const CONTRACT_IDS = ['tent', 'quilt', 'vest', 'kit']
 const otherMaterials = materialDemands.filter((item) => item.id !== 'tent')
 
-const TENT_STOCK = { onHand: 120, inTransit: 50, usable: 0, transferable: 0, donation: 0 }
+const EMPTY_SHELTER = { relocated: '', fixed: '', capacity: '' }
+const EMPTY_TENT_STOCK = { onHand: '', inTransit: '', usable: '', transferable: '', donation: '' }
 
-const shelter = reactive({
-  relocated: shelterPlan.relocatedTotal,
-  fixed: shelterPlan.fixedShelter,
-  capacity: shelterPlan.tentCapacity,
-})
-const tentStock = reactive({ ...TENT_STOCK })
-const overrides = reactive(Object.fromEntries(otherMaterials.map((item) => [item.id, { ...item }])))
+function toNum(value) {
+  return Number(value) || 0
+}
+
+function blankMaterial(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    unit: item.unit,
+    total: '',
+    stock: '',
+    inTransit: '',
+    donation: '',
+    transferable: '',
+  }
+}
+
+const shelter = reactive({ ...EMPTY_SHELTER })
+const tentStock = reactive({ ...EMPTY_TENT_STOCK })
+const overrides = reactive(Object.fromEntries(otherMaterials.map((item) => [item.id, blankMaterial(item)])))
 const channels = reactive(Object.fromEntries(materialDemands.map((item) => [item.id, ''])))
 
 const worksheetFunctions = [
@@ -74,25 +89,32 @@ const worksheetFunctions = [
   '条件格式 · 标识超预算项目',
 ]
 
-const tentShelter = computed(() => Math.max(0, shelter.relocated - shelter.fixed))
+const tentShelter = computed(() => Math.max(0, toNum(shelter.relocated) - toNum(shelter.fixed)))
 const tentDemand = computed(() =>
-  shelter.capacity > 0 ? Math.ceil(tentShelter.value / shelter.capacity) : 0,
+  toNum(shelter.capacity) > 0 ? Math.ceil(tentShelter.value / toNum(shelter.capacity)) : 0,
 )
 const tentNet = computed(() =>
-  Math.max(0, tentDemand.value - tentStock.usable - tentStock.transferable - tentStock.donation),
+  Math.max(0, tentDemand.value - toNum(tentStock.usable) - toNum(tentStock.transferable) - toNum(tentStock.donation)),
 )
 
-const otherRows = computed(() => calculateNetDemand(Object.values(overrides)))
+const otherRows = computed(() => calculateNetDemand(Object.values(overrides).map((item) => ({
+  ...item,
+  total: toNum(item.total),
+  stock: toNum(item.stock),
+  inTransit: toNum(item.inTransit),
+  donation: toNum(item.donation),
+  transferable: toNum(item.transferable),
+}))))
 const allRows = computed(() => [
   {
     id: 'tent',
     name: '帐篷',
     unit: '顶',
     total: tentDemand.value,
-    stock: tentStock.usable,
+    stock: toNum(tentStock.usable),
     inTransit: 0,
-    donation: tentStock.donation,
-    transferable: tentStock.transferable,
+    donation: toNum(tentStock.donation),
+    transferable: toNum(tentStock.transferable),
     computed: tentNet.value,
   },
   ...otherRows.value,
@@ -100,6 +122,12 @@ const allRows = computed(() => [
 const contractRows = computed(() => allRows.value.filter((row) => CONTRACT_IDS.includes(row.id)))
 const directRows = computed(() => allRows.value.filter((row) => !CONTRACT_IDS.includes(row.id)))
 const pendingPages = computed(() => PAGES.filter((p) => p !== 'route' && !flow.isDone(p)))
+
+store.restore({ shelter, tentStock, overrides, channels })
+
+function snapshot() {
+  return { shelter, tentStock, overrides, channels }
+}
 
 function netExpression(row) {
   return `${row.name} = MAX(0, ${num(row.total, 0)} － ${num(row.stock, 0)} － ${num(row.inTransit, 0)} － ${num(row.donation, 0)} － ${num(row.transferable, 0)}) = ${num(row.computed, 0)} ${row.unit}`
@@ -116,12 +144,16 @@ function save(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
 function checkShelter() {
-  if (!(shelter.relocated > 0) || !(shelter.capacity > 0)) return '转移安置总人数与每顶容纳人数须大于 0'
-  if (shelter.fixed < 0 || shelter.fixed > shelter.relocated) return '固定场所安置人数不得超过转移安置总人数'
+  const relocated = toNum(shelter.relocated)
+  const fixed = toNum(shelter.fixed)
+  const capacity = toNum(shelter.capacity)
+  if (!(relocated > 0) || !(capacity > 0)) return '转移安置总人数与每顶容纳人数须大于 0'
+  if (fixed < 0 || fixed > relocated) return '固定场所安置人数不得超过转移安置总人数'
   return ''
 }
 
@@ -138,13 +170,10 @@ function checkRoute() {
 
 function resetAll() {
   flow.reset()
-  Object.assign(shelter, {
-    relocated: shelterPlan.relocatedTotal,
-    fixed: shelterPlan.fixedShelter,
-    capacity: shelterPlan.tentCapacity,
-  })
-  Object.assign(tentStock, TENT_STOCK)
-  otherMaterials.forEach((item) => Object.assign(overrides[item.id], item))
+  store.clear()
+  Object.assign(shelter, EMPTY_SHELTER)
+  Object.assign(tentStock, EMPTY_TENT_STOCK)
+  otherMaterials.forEach((item) => Object.assign(overrides[item.id], blankMaterial(item)))
   materialDemands.forEach((item) => { channels[item.id] = '' })
   error.value = ''
 }
@@ -166,7 +195,7 @@ function resetAll() {
         <!-- 采购管理 → 需求管理 → 安置方式确认 -->
         <template v-if="leaf === 'shelter'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('shelter')" @click="save('shelter', checkShelter)">
+            <button type="button" class="primary-button" @click="save('shelter', checkShelter)">
               确认安置方式
             </button>
           </div>
@@ -174,21 +203,21 @@ function resetAll() {
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">转移安置总人数</span>
-              <input v-model.number="shelter.relocated" type="number" min="0" class="form-control" :disabled="flow.isDone('shelter')" />
+              <input v-model.number="shelter.relocated" type="number" min="0" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label required">固定场所安置人数</span>
-              <input v-model.number="shelter.fixed" type="number" min="0" class="form-control" :disabled="flow.isDone('shelter')" />
+              <input v-model.number="shelter.fixed" type="number" min="0" class="form-control" />
             </label>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">每顶帐篷容纳人数</span>
-              <input v-model.number="shelter.capacity" type="number" min="1" class="form-control" :disabled="flow.isDone('shelter')" />
+              <input v-model.number="shelter.capacity" type="number" min="1" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label">需帐篷安置人数</span>
-              <input :value="tentShelter" class="form-control locked" readonly />
+              <strong class="form-control locked">{{ tentShelter || '—' }}</strong>
             </label>
           </div>
           <template v-if="flow.isDone('shelter')">
@@ -197,7 +226,7 @@ function resetAll() {
             </p>
             <p class="block-formula">
               帐篷重点保障需求量 = ROUNDUP(需要帐篷安置人数 / 每顶容纳人数, 0)
-              = ROUNDUP({{ tentShelter }} / {{ shelter.capacity }}, 0) = {{ tentDemand }} 顶
+              = ROUNDUP({{ tentShelter }} / {{ num(shelter.capacity, 0) }}, 0) = {{ tentDemand }} 顶
             </p>
             <div class="stat-grid">
               <div class="stat-cell">
@@ -223,7 +252,7 @@ function resetAll() {
         <!-- 采购管理 → 需求管理 → 帐篷可用量核验 -->
         <template v-else-if="leaf === 'tent'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('tent')" @click="save('tent')">核验可用量</button>
+            <button type="button" class="primary-button" @click="save('tent')">核验可用量</button>
           </div>
           <p class="form-desc">数据来源：现有库存、在途物资、已锁定分配量、可调拨物资、捐赠物资、安全库存。可用于甲3、甲6 重点网格的帐篷库存为 {{ num(tentStock.usable, 0) }} 顶。</p>
           <table class="calc-table compact">
@@ -233,22 +262,22 @@ function resetAll() {
             <tbody>
               <tr>
                 <th scope="row">现有帐篷<em class="row-unit">仓库实存</em></th>
-                <td>{{ num(tentStock.onHand, 0) }}</td>
+                <td><input v-model.number="tentStock.onHand" type="number" min="0" /></td>
                 <td>否 · 已锁定用于甲1、甲2、甲8 等网格基础保障及安全库存</td>
               </tr>
               <tr>
                 <th scope="row">在途帐篷<em class="row-unit">运输中</em></th>
-                <td>{{ num(tentStock.inTransit, 0) }}</td>
+                <td><input v-model.number="tentStock.inTransit" type="number" min="0" /></td>
                 <td>否 · 同样锁定于基础保障及安全库存</td>
               </tr>
               <tr>
                 <th scope="row">已确认捐赠<em class="row-unit">可直接冲减</em></th>
-                <td><input v-model.number="tentStock.donation" type="number" min="0" :disabled="flow.isDone('tent')" /></td>
+                <td><input v-model.number="tentStock.donation" type="number" min="0" /></td>
                 <td>是</td>
               </tr>
               <tr>
                 <th scope="row">可调拨量<em class="row-unit">可直接冲减</em></th>
-                <td><input v-model.number="tentStock.transferable" type="number" min="0" :disabled="flow.isDone('tent')" /></td>
+                <td><input v-model.number="tentStock.transferable" type="number" min="0" /></td>
                 <td>是</td>
               </tr>
             </tbody>
@@ -257,7 +286,7 @@ function resetAll() {
             <p class="sys-toast">帐篷可用量核验完成，甲3、甲6 帐篷采购需求量 {{ num(tentNet, 0) }} 顶。</p>
             <p class="block-formula">
               甲3、甲6帐篷采购需求量 = MAX(0, 重点保障需求量 － 可用于重点网格库存 － 可调拨量 － 已确认捐赠量)
-              = MAX(0, {{ tentDemand }} － {{ tentStock.usable }} － {{ tentStock.transferable }} － {{ tentStock.donation }})
+              = MAX(0, {{ tentDemand }} － {{ num(tentStock.usable, 0) }} － {{ num(tentStock.transferable, 0) }} － {{ num(tentStock.donation, 0) }})
               = {{ tentNet }} 顶
             </p>
             <ul class="sys-lines">
@@ -271,7 +300,7 @@ function resetAll() {
         <!-- 采购管理 → 需求测算 → 其他物资净需求 -->
         <template v-else-if="leaf === 'others'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('others')" @click="save('others')">计算净需求</button>
+            <button type="button" class="primary-button" @click="save('others')">计算净需求</button>
           </div>
           <p class="form-desc">总需求由前序灾情数据和保障标准形成，不根据供应商报价反推。先用 SUMIFS 汇总《9网格物资需求清单》的物资总需求，再逐项扣减可冲减数量。</p>
           <div class="score-table-wrap">
@@ -282,11 +311,11 @@ function resetAll() {
               <tbody>
                 <tr v-for="row in otherRows" :key="row.id">
                   <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
-                  <td><input v-model.number="overrides[row.id].total" type="number" min="0" :disabled="flow.isDone('others')" /></td>
-                  <td><input v-model.number="overrides[row.id].stock" type="number" min="0" :disabled="flow.isDone('others')" /></td>
-                  <td><input v-model.number="overrides[row.id].inTransit" type="number" min="0" :disabled="flow.isDone('others')" /></td>
-                  <td><input v-model.number="overrides[row.id].donation" type="number" min="0" :disabled="flow.isDone('others')" /></td>
-                  <td><input v-model.number="overrides[row.id].transferable" type="number" min="0" :disabled="flow.isDone('others')" /></td>
+                  <td><input v-model.number="overrides[row.id].total" type="number" min="0" /></td>
+                  <td><input v-model.number="overrides[row.id].stock" type="number" min="0" /></td>
+                  <td><input v-model.number="overrides[row.id].inTransit" type="number" min="0" /></td>
+                  <td><input v-model.number="overrides[row.id].donation" type="number" min="0" /></td>
+                  <td><input v-model.number="overrides[row.id].transferable" type="number" min="0" /></td>
                 </tr>
               </tbody>
             </table>
@@ -324,7 +353,7 @@ function resetAll() {
         <!-- 采购管理 → 需求测算 → 物资需求测算表 -->
         <template v-else-if="leaf === 'worksheet'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('worksheet')" @click="save('worksheet')">生成测算表</button>
+            <button type="button" class="primary-button" @click="save('worksheet')">生成测算表</button>
           </div>
           <p class="form-desc">在 WPS 表格中落表，形成可复算、可追溯的测算底稿。主字段：物资名称、网格总需求、现有可用库存、在途数量、已确认捐赠数量、可调拨数量、净采购量。</p>
           <pre class="block-code"><code>{{ demandExcelFormula }}</code></pre>
@@ -361,7 +390,7 @@ function resetAll() {
         <!-- 采购管理 → 执行路径 → 采购路径与优先级 -->
         <template v-else-if="leaf === 'route'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('route')" @click="save('route', checkRoute)">
+            <button type="button" class="primary-button" @click="save('route', checkRoute)">
               确认执行路径
             </button>
           </div>
@@ -376,7 +405,7 @@ function resetAll() {
                   <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
                   <td>{{ num(row.computed, 0) }}</td>
                   <td>
-                    <select v-model="channels[row.id]" class="form-control" :disabled="flow.isDone('route')">
+                    <select v-model="channels[row.id]" class="form-control">
                       <option value="">请选择执行路径</option>
                       <option value="contract">合同采购 · HT-2025-001 主合同</option>
                       <option value="direct">生活保障直采 · 应急零售/框架协议</option>

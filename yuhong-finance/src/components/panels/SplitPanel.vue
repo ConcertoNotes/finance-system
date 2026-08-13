@@ -4,8 +4,10 @@ import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
 import {
   changeOrder,
+  emergencyQuotes,
   gridTransfers,
   incident,
   initialContract,
@@ -41,6 +43,7 @@ const PAGES = [
   'dispatch',
 ]
 const flow = useTaskFlow('s2-t5', PAGES)
+const store = useFormPersist('s2-t5')
 
 const menu = [
   {
@@ -131,12 +134,12 @@ const menu = [
 const EVIDENCE = ['S2实时库存台账', '仓库出入库记录', '车辆调度记录', '仓库视频', '物流预计到达时间']
 
 const DECISION_PATHS = [
-  { id: 'wait', label: '继续等待 S2 恢复供货', note: '成本最低，但无法满足 800 人安置时限' },
+  { id: 'wait', label: '继续等待 S2 恢复供货', note: '成本最低，但无法满足安置时限' },
   { id: 'switch', label: '全部改由备选供应商供货', note: '成本高，且重新组织全量供货风险大' },
   {
     id: 'combo',
-    label: 'S2保留350顶 + S1分单150顶 + 网格调拨50顶 + 合同变更 + 预备费控制',
-    note: '12 小时内完成 500 顶保障，新增支出仅 9750 元',
+    label: 'S2 保留部分供货 + 备选供应商紧急分单 + 网格调拨 + 合同变更 + 预备费控制',
+    note: '在时限内完成重点保障，并控制新增支出',
   },
 ]
 
@@ -145,24 +148,98 @@ const SOLVER_NOTE =
   '在规划求解中将 Z 设为最小值，改变 x1、x3、y1、y3 四个决策单元格，添加数量、供应能力、整数、0-1 变量和时限约束。'
 
 const activeId = ref('')
-const evidence = reactive(Object.fromEntries(EVIDENCE.map((item) => [item, false])))
-const delivery = reactive({
-  original: incident.originalQuantity,
-  hours12: incident.deliverable12h,
-  hours24: incident.deliverable24h,
-})
-const transferRows = reactive(gridTransfers.map((row) => ({ ...row, max: row.quantity })))
-const decision = reactive({ path: '' })
-// 求解完成后重新进入页面时，滑块停在已求出的最优解上，与结果保持一致。
-const x1 = ref(flow.isDone('solve') ? solveSplitModel().optimal.x1 : 0)
-
 const error = ref('')
+
+function n(value) {
+  return Number(value) || 0
+}
+
+function blankQuote(src) {
+  return {
+    id: src.id,
+    name: src.name,
+    capacity: '',
+    unitPrice: '',
+    arrivalHours: '',
+    vehicleCost: { vehicles: '', hours: '', rate: '' },
+    laborCost: { workers: '', hours: '', rate: '' },
+  }
+}
+
+function blankTransfer(row) {
+  return { from: row.from, to: row.to, quantity: '', max: row.quantity }
+}
+
+function blankDelivery() {
+  return { original: '', hours12: '', hours24: '' }
+}
+
+function blankChange() {
+  return { tentBefore: '', tentAfter: '', unitPrice: '' }
+}
+
+function blankEmergency() {
+  return { quantity: '', goodsAmount: '', vehicleCost: '', laborCost: '' }
+}
+
+function vehicleOf(row) {
+  return n(row.vehicleCost.vehicles) * n(row.vehicleCost.hours) * n(row.vehicleCost.rate)
+}
+
+function laborOf(row) {
+  return n(row.laborCost.workers) * n(row.laborCost.hours) * n(row.laborCost.rate)
+}
+
+function quoteToDomain(row) {
+  const vehicle = vehicleOf(row)
+  const labor = laborOf(row)
+  return {
+    id: row.id,
+    name: row.name,
+    capacity: n(row.capacity),
+    unitPrice: n(row.unitPrice),
+    arrivalHours: n(row.arrivalHours),
+    vehicleCost: {
+      vehicles: n(row.vehicleCost.vehicles),
+      hours: n(row.vehicleCost.hours),
+      rate: n(row.vehicleCost.rate),
+      total: vehicle,
+    },
+    laborCost: {
+      workers: n(row.laborCost.workers),
+      hours: n(row.laborCost.hours),
+      rate: n(row.laborCost.rate),
+      total: labor,
+    },
+    fixedCost: vehicle + labor,
+  }
+}
+
+const evidence = reactive(Object.fromEntries(EVIDENCE.map((item) => [item, false])))
+const delivery = reactive(blankDelivery())
+const transferRows = reactive(gridTransfers.map((row) => blankTransfer(row)))
+const quoteRows = reactive(emergencyQuotes.map((item) => blankQuote(item)))
+const decision = reactive({ path: '' })
+const x1 = ref('')
+const changeForm = reactive(blankChange())
+const emergencyForm = reactive(blankEmergency())
+
+function snapshot() {
+  return { evidence, delivery, transferRows, quoteRows, x1, decision, changeForm, emergencyForm }
+}
+
+store.restore(snapshot())
+quoteRows.forEach((row, index) => {
+  const blank = blankQuote(emergencyQuotes[index])
+  row.vehicleCost = { ...blank.vehicleCost, ...(row.vehicleCost || {}) }
+  row.laborCost = { ...blank.laborCost, ...(row.laborCost || {}) }
+})
 
 const chosenEvidence = computed(() => EVIDENCE.filter((item) => evidence[item]))
 
-const original = computed(() => Number(delivery.original) || 0)
-const hours12 = computed(() => Number(delivery.hours12) || 0)
-const hours24 = computed(() => Number(delivery.hours24) || 0)
+const original = computed(() => n(delivery.original))
+const hours12 = computed(() => n(delivery.hours12))
+const hours24 = computed(() => n(delivery.hours24))
 const retained = computed(() => hours12.value + hours24.value)
 const undeliverable = computed(() => original.value - retained.value)
 const gap12h = computed(() => original.value - hours12.value)
@@ -171,16 +248,32 @@ const contractGap = computed(() => original.value - retained.value)
 const affectedPeople = computed(() => gap12h.value * shelterPlan.tentCapacity)
 const arrivalRate = computed(() => (original.value ? hours12.value / original.value : 0))
 
-const transferTotal = computed(() => transferRows.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0))
+const transferTotal = computed(() => transferRows.reduce((sum, row) => sum + n(row.quantity), 0))
 const transferPeople = computed(() => transferTotal.value * shelterPlan.tentCapacity)
 const splitRequired = computed(() => gap12h.value - transferTotal.value)
 
-const quotes = computed(() => buildEmergencyQuotes())
-const solution = computed(() => solveSplitModel())
-const current = computed(() => evaluateSplit(x1.value, splitModel.required - x1.value))
-const isOptimal = computed(() => current.value.total === solution.value.optimal.total)
+const domainQuotes = computed(() => quoteRows.map((row) => quoteToDomain(row)))
+const quotes = computed(() =>
+  buildEmergencyQuotes(splitModel.required, domainQuotes.value).map((item) => ({
+    ...item,
+    unitLanded: n(item.unitLanded),
+  })),
+)
+const solution = computed(() => {
+  try {
+    return solveSplitModel(splitModel.required, domainQuotes.value)
+  } catch {
+    return { candidates: [], optimal: null, saving: 0, worst: { total: 0 } }
+  }
+})
+const x1n = computed(() => n(x1.value))
+const current = computed(() => evaluateSplit(x1n.value, splitModel.required - x1n.value, domainQuotes.value))
+const isOptimal = computed(() => {
+  const best = solution.value.optimal
+  return !!(best && current.value.total === best.total)
+})
 
-const arrival12h = computed(() => hours12.value + solution.value.optimal.x1 + transferTotal.value)
+const arrival12h = computed(() => hours12.value + n(solution.value.optimal?.x1) + transferTotal.value)
 const completionRate = computed(() => (original.value ? arrival12h.value / original.value : 0))
 
 const impact = computed(() => calculateChangeImpact())
@@ -193,6 +286,9 @@ const tentCostBefore = computed(() => changeOrder.tentBefore * changeOrder.unitP
 const tentCostAfter = computed(() => tentCostBefore.value + impact.value.increment)
 const deviation = computed(() => (impact.value.goodsUnitCost - BASELINE_PRICE) / BASELINE_PRICE)
 const pendingPages = computed(() => PAGES.filter((id) => id !== 'dispatch' && !flow.isDone(id)))
+const emergencyTotal = computed(() =>
+  n(emergencyForm.goodsAmount) + n(emergencyForm.vehicleCost) + n(emergencyForm.laborCost),
+)
 
 const emergency = changeOrder.emergencyContract
 
@@ -203,6 +299,7 @@ function run(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
@@ -219,9 +316,9 @@ function checkImpact() {
 }
 
 function checkTransfers() {
-  const over = transferRows.find((row) => (Number(row.quantity) || 0) > row.max)
+  const over = transferRows.find((row) => n(row.quantity) > n(row.max))
   if (over) return `${over.from}网格最多可调出 ${over.max} 顶，超出后最低保障完成率将低于 80%`
-  if (transferRows.some((row) => (Number(row.quantity) || 0) < 0)) return '调拨数量不得为负'
+  if (transferRows.some((row) => n(row.quantity) < 0)) return '调拨数量不得为负'
   if (transferTotal.value <= 0) return '请填写各网格可调拨数量'
   if (splitRequired.value !== splitModel.required) {
     return `剩余需紧急分单 ${num(splitRequired.value, 0)} 顶，与备选供应商紧急分单口径 ${splitModel.required} 顶不一致，请复核 12 小时缺口与网格可调拨量`
@@ -231,8 +328,10 @@ function checkTransfers() {
 
 function checkSolve() {
   if (current.value.violations.length) return `约束不满足：${current.value.violations.join('；')}`
-  if (!isOptimal.value) {
-    return `当前组合 x1=${current.value.x1}、x3=${current.value.x3} 综合成本 ${money(current.value.total, 0)} 元，比最优解高 ${money(current.value.total - solution.value.optimal.total, 0)} 元，请继续调整分单数量`
+  const best = solution.value.optimal
+  if (!best) return '当前询价数据无法求出可行解，请复核备选询价'
+  if (current.value.total !== best.total) {
+    return `当前组合 x1=${current.value.x1}、x3=${current.value.x3} 综合成本 ${money(current.value.total, 0)} 元，比最优解高 ${money(current.value.total - best.total, 0)} 元，请继续调整分单数量`
   }
   return ''
 }
@@ -253,15 +352,22 @@ function checkDispatch() {
 
 function resetAll() {
   flow.reset()
+  store.clear()
   EVIDENCE.forEach((item) => { evidence[item] = false })
-  Object.assign(delivery, {
-    original: incident.originalQuantity,
-    hours12: incident.deliverable12h,
-    hours24: incident.deliverable24h,
+  Object.assign(delivery, blankDelivery())
+  transferRows.forEach((row, index) => Object.assign(row, blankTransfer(gridTransfers[index])))
+  quoteRows.forEach((row, index) => {
+    const blank = blankQuote(emergencyQuotes[index])
+    row.capacity = blank.capacity
+    row.unitPrice = blank.unitPrice
+    row.arrivalHours = blank.arrivalHours
+    Object.assign(row.vehicleCost, blank.vehicleCost)
+    Object.assign(row.laborCost, blank.laborCost)
   })
-  transferRows.forEach((row, index) => Object.assign(row, gridTransfers[index], { max: gridTransfers[index].quantity }))
+  Object.assign(changeForm, blankChange())
+  Object.assign(emergencyForm, blankEmergency())
   decision.path = ''
-  x1.value = 0
+  x1.value = ''
   error.value = ''
 }
 </script>
@@ -282,14 +388,14 @@ function resetAll() {
         <!-- 库存管理 → 异常监测 → 库存异常核验 -->
         <template v-if="leaf === 'verify'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('verify')" @click="run('verify', checkEvidence)">
+            <button type="button" class="primary-button" @click="run('verify', checkEvidence)">
               交叉核验
             </button>
           </div>
           <p class="form-desc">{{ incident.title }}，调取以下证据来源交叉核验。</p>
           <div class="checkbox-group">
             <label v-for="item in EVIDENCE" :key="item" class="checkbox-item">
-              <input v-model="evidence[item]" type="checkbox" :disabled="flow.isDone('verify')" />{{ item }}
+              <input v-model="evidence[item]" type="checkbox" />{{ item }}
             </label>
           </div>
           <template v-if="flow.isDone('verify')">
@@ -303,23 +409,23 @@ function resetAll() {
         <!-- 库存管理 → 影响分析 → 合同影响测算 -->
         <template v-else-if="leaf === 'impact'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('impact')" @click="run('impact', checkImpact)">
+            <button type="button" class="primary-button" @click="run('impact', checkImpact)">
               测算缺口
             </button>
           </div>
           <div class="input-row">
             <label>原合同帐篷数量</label>
-            <input v-model.number="delivery.original" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
+            <input v-model.number="delivery.original" type="number" min="0" step="10" />
             <span class="input-unit">顶</span>
           </div>
           <div class="input-row">
             <label>12 小时内可交付</label>
-            <input v-model.number="delivery.hours12" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
+            <input v-model.number="delivery.hours12" type="number" min="0" step="10" />
             <span class="input-unit">顶</span>
           </div>
           <div class="input-row">
             <label>24 小时内可交付</label>
-            <input v-model.number="delivery.hours24" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
+            <input v-model.number="delivery.hours24" type="number" min="0" step="10" />
             <span class="input-unit">顶</span>
           </div>
           <template v-if="flow.isDone('impact')">
@@ -345,7 +451,7 @@ function resetAll() {
         <!-- 库存管理 → 影响分析 → 网格保障影响 -->
         <template v-else-if="leaf === 'gridImpact'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('gridImpact')" @click="run('gridImpact')">
+            <button type="button" class="primary-button" @click="run('gridImpact')">
               测算影响
             </button>
           </div>
@@ -380,7 +486,7 @@ function resetAll() {
         <!-- 库存管理 → 可调拨资源 → 可调拨核验 -->
         <template v-else-if="leaf === 'transferable'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('transferable')" @click="run('transferable', checkTransfers)">
+            <button type="button" class="primary-button" @click="run('transferable', checkTransfers)">
               汇总可调拨量
             </button>
           </div>
@@ -399,7 +505,7 @@ function resetAll() {
                 <td>{{ row.to }}</td>
                 <td>{{ num(row.max, 0) }} 顶</td>
                 <td>
-                  <input v-model.number="row.quantity" type="number" min="0" :max="row.max" step="5" :disabled="flow.isDone('transferable')" />
+                  <input v-model.number="row.quantity" type="number" min="0" :max="row.max" step="5" />
                 </td>
               </tr>
             </tbody>
@@ -434,7 +540,7 @@ function resetAll() {
         <!-- 采购执行 → 合同执行 → 暂停供货 -->
         <template v-else-if="leaf === 'pause'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('pause')" @click="run('pause')">暂停付款</button>
+            <button type="button" class="primary-button" @click="run('pause')">暂停付款</button>
           </div>
           <dl class="block-fields">
             <div class="field-row"><dt>合同编号</dt><dd>{{ changeOrder.contractCode }}</dd></div>
@@ -455,7 +561,7 @@ function resetAll() {
         <!-- 采购执行 → 紧急询价 → 备选询价 -->
         <template v-else-if="leaf === 'inquiry'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('inquiry')" @click="run('inquiry')">
+            <button type="button" class="primary-button" @click="run('inquiry')">
               发起紧急询价
             </button>
           </div>
@@ -472,18 +578,22 @@ function resetAll() {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="q in quotes" :key="q.id">
-                  <th scope="row">{{ q.id }}</th>
-                  <td>{{ num(q.capacity, 0) }} 顶</td>
-                  <td>{{ money(q.unitPrice, 0) }} 元/顶</td>
-                  <td>{{ q.arrivalHours }} 小时</td>
+                <tr v-for="row in quoteRows" :key="row.id">
+                  <th scope="row">{{ row.id }}</th>
+                  <td><input v-model.number="row.capacity" type="number" min="0" step="10" /></td>
+                  <td><input v-model.number="row.unitPrice" type="number" min="0" step="1" /></td>
+                  <td><input v-model.number="row.arrivalHours" type="number" min="0" step="1" /></td>
                   <td>
-                    {{ q.vehicleCost.vehicles }}辆 × {{ q.vehicleCost.hours }}小时 × {{ money(q.vehicleCost.rate, 0) }}元/车小时
-                    = {{ money(q.vehicleCost.total, 0) }} 元
+                    <input v-model.number="row.vehicleCost.vehicles" type="number" min="0" />辆 ×
+                    <input v-model.number="row.vehicleCost.hours" type="number" min="0" />小时 ×
+                    <input v-model.number="row.vehicleCost.rate" type="number" min="0" />元/车小时
+                    = {{ money(vehicleOf(row), 0) }} 元
                   </td>
                   <td>
-                    {{ q.laborCost.workers }}人 × {{ q.laborCost.hours }}小时 × {{ money(q.laborCost.rate, 0) }}元/人小时
-                    = {{ money(q.laborCost.total, 0) }} 元
+                    <input v-model.number="row.laborCost.workers" type="number" min="0" />人 ×
+                    <input v-model.number="row.laborCost.hours" type="number" min="0" />小时 ×
+                    <input v-model.number="row.laborCost.rate" type="number" min="0" />元/人小时
+                    = {{ money(laborOf(row), 0) }} 元
                   </td>
                 </tr>
               </tbody>
@@ -528,7 +638,7 @@ function resetAll() {
         <!-- 采购执行 → 紧急询价 → 固定安置物资锁定 -->
         <template v-else-if="leaf === 'fixed'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('fixed')" @click="run('fixed')">识别固定成本</button>
+            <button type="button" class="primary-button" @click="run('fixed')">识别固定成本</button>
           </div>
           <template v-if="flow.isDone('fixed')">
             <ul class="sys-lines">
@@ -545,7 +655,7 @@ function resetAll() {
         <!-- 应急分单 → 模型配置 -->
         <template v-else-if="leaf === 'model'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('model')" @click="run('model')">建立模型</button>
+            <button type="button" class="primary-button" @click="run('model')">建立模型</button>
           </div>
           <p class="form-desc">
             设 x1、x3 分别为向 S1、S3 采购的帐篷数量，y1、y3 分别表示是否启用该供应商（启用=1，不启用=0）。
@@ -563,23 +673,27 @@ function resetAll() {
         <!-- 应急分单 → 模型求解 -->
         <template v-else-if="leaf === 'solve'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('solve')" @click="run('solve', checkSolve)">
+            <button type="button" class="primary-button" @click="run('solve', checkSolve)">
               执行求解
             </button>
           </div>
           <div class="solver">
-            <label class="solver-label">向 S1 采购 x1 = <strong>{{ x1 }}</strong> 顶</label>
+            <label class="solver-label">
+              向 S1 采购 x1 =
+              <input v-model.number="x1" type="number" min="0" :max="splitModel.required" step="10" />
+              顶
+            </label>
             <input
-              v-model.number="x1"
+              :value="x1n"
               type="range"
               min="0"
               :max="splitModel.required"
               step="10"
               class="solver-range"
-              :disabled="flow.isDone('solve')"
+              @input="x1 = Number($event.target.value)"
             />
             <p class="solver-derived">
-              向 S3 采购 x3 = {{ splitModel.required - x1 }} 顶 ｜ y1 = {{ current.y1 }}，y3 = {{ current.y3 }}
+              向 S3 采购 x3 = {{ splitModel.required - x1n }} 顶 ｜ y1 = {{ current.y1 }}，y3 = {{ current.y3 }}
             </p>
 
             <div class="solver-breakdown">
@@ -592,11 +706,11 @@ function resetAll() {
             <p v-else-if="isOptimal" class="solver-optimal">
               当前组合即为最优解 x1={{ solution.optimal.x1 }}、x3={{ solution.optimal.x3 }}。
             </p>
-            <p v-else class="solver-gap">
+            <p v-else-if="solution.optimal" class="solver-gap">
               比最优解高 {{ money(current.total - solution.optimal.total, 0) }} 元，继续调整 x1 可进一步降低综合成本。
             </p>
           </div>
-          <template v-if="flow.isDone('solve')">
+          <template v-if="flow.isDone('solve') && solution.optimal">
             <p class="sys-toast">
               规划求解结果：x1={{ solution.optimal.x1 }}、x3={{ solution.optimal.x3 }}、y1={{ solution.optimal.y1 }}、y3={{ solution.optimal.y3 }}，
               综合成本 {{ money(solution.optimal.total, 0) }} 元。
@@ -630,7 +744,7 @@ function resetAll() {
         <!-- 应急分单 → 分单方案 -->
         <template v-else-if="leaf === 'plan'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('plan')" @click="run('plan')">生成处置方案</button>
+            <button type="button" class="primary-button" @click="run('plan')">生成处置方案</button>
           </div>
           <template v-if="flow.isDone('plan')">
             <p class="sys-toast">总体处置方案已生成，12 小时内可到位 {{ num(arrival12h, 0) }} 顶。</p>
@@ -646,7 +760,7 @@ function resetAll() {
                 </tr>
                 <tr>
                   <th scope="row">S1 紧急分单</th>
-                  <td>{{ num(solution.optimal.x1, 0) }} 顶</td>
+                  <td>{{ num(solution.optimal?.x1, 0) }} 顶</td>
                   <td>{{ quotes[0].arrivalHours }} 小时内到达</td>
                 </tr>
                 <tr>
@@ -657,7 +771,7 @@ function resetAll() {
               </tbody>
             </table>
             <p class="block-formula">
-              12 小时内可到位数量 = {{ num(hours12, 0) }} + {{ num(solution.optimal.x1, 0) }} + {{ num(transferTotal, 0) }} = {{ num(arrival12h, 0) }} 顶
+              12 小时内可到位数量 = {{ num(hours12, 0) }} + {{ num(solution.optimal?.x1, 0) }} + {{ num(transferTotal, 0) }} = {{ num(arrival12h, 0) }} 顶
             </p>
             <p class="block-formula">
               第一批重点保障完成率 = {{ num(arrival12h, 0) }} / {{ num(original, 0) }} × 100% = {{ percent(completionRate, 0) }}
@@ -671,19 +785,19 @@ function resetAll() {
         <!-- 应急分单 → 处置决策 -->
         <template v-else-if="leaf === 'decision'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('decision')" @click="run('decision', checkDecision)">
+            <button type="button" class="primary-button" @click="run('decision', checkDecision)">
               批准方案
             </button>
           </div>
           <div class="checkbox-group">
             <label v-for="path in DECISION_PATHS" :key="path.id" class="checkbox-item">
-              <input v-model="decision.path" type="radio" :value="path.id" :disabled="flow.isDone('decision')" />
+              <input v-model="decision.path" type="radio" :value="path.id" />
               {{ path.label }}（{{ path.note }}）
             </label>
           </div>
           <template v-if="flow.isDone('decision')">
             <p class="sys-toast">
-              决定采用组合方案：S2 保留 {{ num(retained, 0) }} 顶 + S1 分单 {{ num(solution.optimal.x1, 0) }} 顶 +
+              决定采用组合方案：S2 保留 {{ num(retained, 0) }} 顶 + S1 分单 {{ num(solution.optimal?.x1, 0) }} 顶 +
               网格调拨 {{ num(transferTotal, 0) }} 顶 + 合同变更 + 预备费控制。
             </p>
             <ul class="sys-lines">
@@ -699,20 +813,20 @@ function resetAll() {
         <!-- 合同管理 → 变更管理 → 变更单 -->
         <template v-else-if="leaf === 'change'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('change')" @click="run('change')">提交变更审批</button>
+            <button type="button" class="primary-button" @click="run('change')">提交变更审批</button>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">变更前帐篷数量</span>
-              <input class="form-control locked" :value="`${changeOrder.tentBefore} 顶`" readonly />
+              <input v-model.number="changeForm.tentBefore" type="number" min="0" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label">变更后帐篷数量</span>
-              <input class="form-control locked" :value="`${changeOrder.tentAfter} 顶`" readonly />
+              <input v-model.number="changeForm.tentAfter" type="number" min="0" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label">合同单价</span>
-              <input class="form-control locked" :value="`${money(changeOrder.unitPrice, 0)} 元/顶`" readonly />
+              <input v-model.number="changeForm.unitPrice" type="number" min="0" class="form-control" />
             </label>
           </div>
           <template v-if="flow.isDone('change')">
@@ -736,7 +850,7 @@ function resetAll() {
         <!-- 合同管理 → 紧急合同 → 紧急合同编制 -->
         <template v-else-if="leaf === 'emergency'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('emergency')" @click="run('emergency')">提交审批</button>
+            <button type="button" class="primary-button" @click="run('emergency')">提交审批</button>
           </div>
           <table class="calc-table compact">
             <thead>
@@ -744,13 +858,25 @@ function resetAll() {
             </thead>
             <tbody>
               <tr><th scope="row">供应商</th><td class="col-total">{{ emergency.supplierId }}</td></tr>
-              <tr><th scope="row">采购帐篷</th><td class="col-total">{{ num(emergency.quantity, 0) }} 顶</td></tr>
-              <tr><th scope="row">货物金额</th><td class="col-total">{{ money(emergency.goodsAmount, 0) }} 元</td></tr>
-              <tr><th scope="row">车辆应急增加成本</th><td class="col-total">{{ money(emergency.vehicleCost, 0) }} 元</td></tr>
-              <tr><th scope="row">装卸人工增加成本</th><td class="col-total">{{ money(emergency.laborCost, 0) }} 元</td></tr>
+              <tr>
+                <th scope="row">采购帐篷</th>
+                <td class="col-total"><input v-model.number="emergencyForm.quantity" type="number" min="0" /> 顶</td>
+              </tr>
+              <tr>
+                <th scope="row">货物金额</th>
+                <td class="col-total"><input v-model.number="emergencyForm.goodsAmount" type="number" min="0" /> 元</td>
+              </tr>
+              <tr>
+                <th scope="row">车辆应急增加成本</th>
+                <td class="col-total"><input v-model.number="emergencyForm.vehicleCost" type="number" min="0" /> 元</td>
+              </tr>
+              <tr>
+                <th scope="row">装卸人工增加成本</th>
+                <td class="col-total"><input v-model.number="emergencyForm.laborCost" type="number" min="0" /> 元</td>
+              </tr>
             </tbody>
             <tfoot>
-              <tr><th scope="row">合同总额</th><td class="col-total">{{ money(emergency.total, 0) }} 元</td></tr>
+              <tr><th scope="row">合同总额</th><td class="col-total">{{ money(emergencyTotal, 0) }} 元</td></tr>
             </tfoot>
           </table>
           <template v-if="flow.isDone('emergency')">
@@ -773,7 +899,7 @@ function resetAll() {
         <!-- 预算管理 → 成本重估 -->
         <template v-else-if="leaf === 'recost'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('recost')" @click="run('recost')">重新测算</button>
+            <button type="button" class="primary-button" @click="run('recost')">重新测算</button>
           </div>
           <template v-if="flow.isDone('recost')">
             <p class="block-formula">
@@ -835,7 +961,7 @@ function resetAll() {
         <!-- 预算管理 → 预算重占用 -->
         <template v-else-if="leaf === 'reoccupy'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('reoccupy')" @click="run('reoccupy')">重新占用</button>
+            <button type="button" class="primary-button" @click="run('reoccupy')">重新占用</button>
           </div>
           <template v-if="flow.isDone('reoccupy')">
             <p class="block-formula">
@@ -858,7 +984,7 @@ function resetAll() {
         <!-- 资金核算 → 付款规则调整 -->
         <template v-else-if="leaf === 'payRules'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('payRules')" @click="run('payRules')">保存控制规则</button>
+            <button type="button" class="primary-button" @click="run('payRules')">保存控制规则</button>
           </div>
           <template v-if="flow.isDone('payRules')">
             <p class="sys-toast">变更后付款和四流控制规则已保存并生效。</p>
@@ -894,7 +1020,7 @@ function resetAll() {
         <!-- 采购执行 → 调度下达 -->
         <template v-else-if="leaf === 'dispatch'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" :disabled="flow.isDone('dispatch')" @click="run('dispatch', checkDispatch)">
+            <button type="button" class="primary-button" @click="run('dispatch', checkDispatch)">
               执行调拨
             </button>
           </div>

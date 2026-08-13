@@ -6,9 +6,11 @@ import { percent } from '../../domain/format.js'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
+import { useFormPersist } from '../../composables/useFormPersist.js'
 
 const PAGES = ['load-data', 'quality-rule', 'disposal-rule', 'veto-rule', 'evidence-rule', 'detect-run', 'report-manage', 'share-publish']
 const flow = useTaskFlow('s1-t3', PAGES)
+const store = useFormPersist('s1-t3')
 
 const menu = [
   {
@@ -54,8 +56,8 @@ const error = ref('')
 const gridNames = '123456789'.split('').map((n) => `甲${n}`)
 
 const intake = reactive({
-  dataset: '《9网格灾情清洗数据表》',
-  scene: '预算模型准入检测',
+  dataset: '',
+  scene: '',
 })
 
 const autoRead = [
@@ -66,12 +68,12 @@ const autoRead = [
   { label: '基础信息匹配结果', value: '9 / 9 网格基础信息匹配一致' },
 ]
 
-const rule = reactive({ name: '灾情数据预算模型准入规则', threshold: 95, method: '多源交叉验证' })
+const rule = reactive({ name: '', threshold: '', method: '' })
 
 const fieldNames = ['网格编号', '受灾人数', '被困人数', '转移安置人数', '特殊人群数', '道路情况', '降雨量', '水位', '距仓库距离']
 const sourceNames = ['应急管理部门报送数据', '气象监测数据', '无人机巡航数据']
-const fields = reactive(Object.fromEntries(fieldNames.map((n) => [n, true])))
-const crossSources = reactive(Object.fromEntries(sourceNames.map((n) => [n, true])))
+const fields = reactive(Object.fromEntries(fieldNames.map((n) => [n, false])))
+const crossSources = reactive(Object.fromEntries(sourceNames.map((n) => [n, false])))
 
 const anomalies = [
   { grid: '甲3', metric: '累计降雨量 156mm', review: '多源验证通过', state: '保留，重点关注' },
@@ -79,7 +81,7 @@ const anomalies = [
 ]
 
 const disposalIds = ['Q01', 'Q02', 'Q03', 'Q04']
-const disposalEnabled = reactive(Object.fromEntries(disposalIds.map((id) => [id, flow.isDone('disposal-rule')])))
+const disposalEnabled = reactive(Object.fromEntries(disposalIds.map((id) => [id, false])))
 
 const disposalRules = computed(() => [
   { id: 'Q01', when: `完整率 ＜ ${rule.threshold}%`, state: '不准入', action: '自动退回采购成本保障岗补采' },
@@ -88,15 +90,15 @@ const disposalRules = computed(() => [
   { id: 'Q04', when: '质量指标达到内部门槛', state: '准予继续', action: '进入第二层合规检测' },
 ])
 
-const judgeMode = ref('一票否决')
+const judgeMode = ref('')
 
 const vetoItems = reactive([
-  { code: 'C01', name: '数据采集授权', detail: '数据来源是否经过授权：应急管理数据访问授权、气象数据访问授权、无人机数据使用权限。全部通过 = PASS，任一未授权 = VETO', pass: true },
-  { code: 'C02', name: '字段完整与清洗规范', detail: '系统自动读取字段标准化结果、重复数据处理结果、缺失值检查结果、异常值复核结果。存在未经处理的数据质量问题即禁止进入预算模型', pass: true },
-  { code: 'C03', name: '模型逻辑', detail: '模型输入字段是否来自已清洗数据、计算字段是否与数据维度一致、是否存在未经授权人工修改数据、模型参数是否可追溯。模型逻辑可追溯 → 通过', pass: true },
-  { code: 'C04', name: '资金用途限制', detail: '政府财政拨款保障资金、限定性社会捐赠、非限定性社会捐赠、保险赔款、其他合规项目资金是否均已建立用途标签；限定性资金必须匹配限定用途，用途不匹配 → 一票否决', pass: true },
-  { code: 'C05', name: '预算审批权限', detail: '预算编制、调整、审批角色是否符合内部授权：应急预算绩效岗预算测算、财务主管统筹岗审核确认。未经授权审批 → 不得进入正式预算执行', pass: true },
-  { code: 'C06', name: '付款审批权限', detail: '付款申请、付款核验和最终审批权限是否分离。申请人与最终审批人权限冲突 → 一票否决', pass: true },
+  { code: 'C01', name: '数据采集授权', detail: '数据来源是否经过授权：应急管理数据访问授权、气象数据访问授权、无人机数据使用权限。全部通过 = PASS，任一未授权 = VETO', pass: false },
+  { code: 'C02', name: '字段完整与清洗规范', detail: '系统自动读取字段标准化结果、重复数据处理结果、缺失值检查结果、异常值复核结果。存在未经处理的数据质量问题即禁止进入预算模型', pass: false },
+  { code: 'C03', name: '模型逻辑', detail: '模型输入字段是否来自已清洗数据、计算字段是否与数据维度一致、是否存在未经授权人工修改数据、模型参数是否可追溯。模型逻辑可追溯 → 通过', pass: false },
+  { code: 'C04', name: '资金用途限制', detail: '政府财政拨款保障资金、限定性社会捐赠、非限定性社会捐赠、保险赔款、其他合规项目资金是否均已建立用途标签；限定性资金必须匹配限定用途，用途不匹配 → 一票否决', pass: false },
+  { code: 'C05', name: '预算审批权限', detail: '预算编制、调整、审批角色是否符合内部授权：应急预算绩效岗预算测算、财务主管统筹岗审核确认。未经授权审批 → 不得进入正式预算执行', pass: false },
+  { code: 'C06', name: '付款审批权限', detail: '付款申请、付款核验和最终审批权限是否分离。申请人与最终审批人权限冲突 → 一票否决', pass: false },
 ])
 
 const evidenceLevels = [
@@ -105,19 +107,19 @@ const evidenceLevels = [
   { level: '三级', name: '内部控制制度', docs: ['单位内部授权审批制度', '项目预算审批权限', '付款审批权限'] },
 ]
 const docNames = evidenceLevels.flatMap((item) => item.docs)
-const docs = reactive(Object.fromEntries(docNames.map((n) => [n, flow.isDone('evidence-rule')])))
-const referenceMode = ref('每项检测规则必须绑定对应制度依据')
+const docs = reactive(Object.fromEntries(docNames.map((n) => [n, false])))
+const referenceMode = ref('')
 
-const quality = reactive({ completeness: 1, timeliness: 1, pendingReview: 0 })
+const quality = reactive({ completeness: '', timeliness: '', pendingReview: '' })
 const detectScope = ['数据完整率', '数据及时率', '统计异常复核', '数据维度一致性', 'C01—C06 合规否决项']
 
-const reviewer = ref('财务主管统筹岗')
-const reportGenerated = ref(flow.isDone('report-manage'))
+const reviewer = ref('')
+const reportGenerated = ref(false)
 
 const shareTargetNames = ['应急预算绩效岗', '采购成本保障岗', '资金核算风控岗', '数字人御洪星']
 const shareContentNames = ['《9网格清洗数据》', '《灾情数据质量与合规校验单》', '模型准入状态']
-const shareTargets = reactive(Object.fromEntries(shareTargetNames.map((n) => [n, flow.isDone('share-publish')])))
-const shareContents = reactive(Object.fromEntries(shareContentNames.map((n) => [n, flow.isDone('share-publish')])))
+const shareTargets = reactive(Object.fromEntries(shareTargetNames.map((n) => [n, false])))
+const shareContents = reactive(Object.fromEntries(shareContentNames.map((n) => [n, false])))
 
 const thresholdRate = computed(() => rule.threshold / 100)
 const completenessPass = computed(() => quality.completeness >= thresholdRate.value)
@@ -191,10 +193,33 @@ const reportRows = computed(() => [
 const chosenFields = computed(() => fieldNames.filter((n) => fields[n]))
 const chosenSources = computed(() => sourceNames.filter((n) => crossSources[n]))
 const enabledDisposal = computed(() => disposalRules.value.filter((r) => disposalEnabled[r.id]))
-const attachedDocs = computed(() => docNames.filter((n) => docs[n]))
 const chosenTargets = computed(() => shareTargetNames.filter((n) => shareTargets[n]))
-const chosenContents = computed(() => shareContentNames.filter((n) => shareContents[n]))
 const pendingRulePages = computed(() => RULE_PAGES.filter((id) => !flow.isDone(id)).map((id) => leafLabels[id]))
+
+function snapshot() {
+  return {
+    intake,
+    rule,
+    fields,
+    crossSources,
+    disposalEnabled,
+    judgeMode,
+    vetoItems,
+    docs,
+    referenceMode,
+    quality,
+    reviewer,
+    reportGenerated,
+    shareTargets,
+    shareContents,
+  }
+}
+
+store.restore(snapshot())
+
+function filled(value) {
+  return value !== '' && value != null && !(typeof value === 'number' && Number.isNaN(value))
+}
 
 function save(id, check) {
   const message = check ? check() : ''
@@ -203,6 +228,7 @@ function save(id, check) {
     return
   }
   error.value = ''
+  store.persist(snapshot())
   flow.complete(id)
 }
 
@@ -217,24 +243,20 @@ function generateReport() {
 
 function resetAll() {
   flow.reset()
+  store.clear()
+  Object.assign(intake, { dataset: '', scene: '' })
+  Object.assign(rule, { name: '', threshold: '', method: '' })
+  fieldNames.forEach((n) => { fields[n] = false })
+  sourceNames.forEach((n) => { crossSources[n] = false })
   disposalIds.forEach((id) => { disposalEnabled[id] = false })
+  vetoItems.forEach((item) => { item.pass = false })
   docNames.forEach((n) => { docs[n] = false })
   shareTargetNames.forEach((n) => { shareTargets[n] = false })
   shareContentNames.forEach((n) => { shareContents[n] = false })
-  vetoItems.forEach((item) => { item.pass = true })
-  fieldNames.forEach((n) => { fields[n] = true })
-  sourceNames.forEach((n) => { crossSources[n] = true })
-  quality.completeness = 1
-  quality.timeliness = 1
-  quality.pendingReview = 0
-  intake.dataset = '《9网格灾情清洗数据表》'
-  intake.scene = '预算模型准入检测'
-  rule.name = '灾情数据预算模型准入规则'
-  rule.method = '多源交叉验证'
-  rule.threshold = 95
-  judgeMode.value = '一票否决'
-  referenceMode.value = '每项检测规则必须绑定对应制度依据'
-  reviewer.value = '财务主管统筹岗'
+  Object.assign(quality, { completeness: '', timeliness: '', pendingReview: '' })
+  judgeMode.value = ''
+  referenceMode.value = ''
+  reviewer.value = ''
   reportGenerated.value = false
   error.value = ''
 }
@@ -259,8 +281,7 @@ function resetAll() {
             <button
               type="button"
               class="primary-button"
-              :disabled="flow.isDone('load-data')"
-              @click="save('load-data', () => (intake.scene === '预算模型准入检测' && intake.dataset !== '《9网格灾情清洗数据表》' ? '预算模型准入检测仅接受已清洗数据集，请选择《9网格灾情清洗数据表》' : ''))"
+              @click="save('load-data', () => (intake.dataset && intake.scene ? '' : '数据集与检测场景为必填项'))"
             >
               载入检测数据
             </button>
@@ -268,14 +289,16 @@ function resetAll() {
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">选择数据集</span>
-              <select v-model="intake.dataset" class="form-control" :disabled="flow.isDone('load-data')">
+              <select v-model="intake.dataset" class="form-control">
+                <option value="">请选择</option>
                 <option>《9网格灾情清洗数据表》</option>
                 <option>《9网格灾情原始采集表》</option>
               </select>
             </label>
             <label class="form-item">
               <span class="form-label required">选择检测场景</span>
-              <select v-model="intake.scene" class="form-control" :disabled="flow.isDone('load-data')">
+              <select v-model="intake.scene" class="form-control">
+                <option value="">请选择</option>
                 <option>预算模型准入检测</option>
                 <option>支付合规检测</option>
               </select>
@@ -302,12 +325,9 @@ function resetAll() {
             <button
               type="button"
               class="primary-button"
-              :disabled="flow.isDone('quality-rule')"
               @click="save('quality-rule', () => {
                 if (!rule.name.trim()) return '规则名称为必填项'
-                if (!(rule.threshold > 0 && rule.threshold <= 100)) return '数据质量准入值需在 0—100% 之间'
-                if (chosenFields.length !== 9) return `完整率检测内容需覆盖 9 个字段，还差 ${9 - chosenFields.length} 项`
-                if (rule.method === '多源交叉验证' && chosenSources.length !== 3) return '多源交叉验证需同时启用应急管理、气象、无人机三个核验来源'
+                if (!filled(rule.threshold)) return '数据质量准入值为必填项'
                 return ''
               })"
             >
@@ -317,11 +337,11 @@ function resetAll() {
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">规则名称</span>
-              <input v-model="rule.name" class="form-control" :disabled="flow.isDone('quality-rule')" />
+              <input v-model="rule.name" class="form-control" />
             </label>
             <label class="form-item">
               <span class="form-label required">数据质量准入值（%）</span>
-              <input v-model.number="rule.threshold" type="number" min="0" max="100" class="form-control" :disabled="flow.isDone('quality-rule')" />
+              <input v-model.number="rule.threshold" type="number" min="0" max="100" class="form-control" />
             </label>
           </div>
           <p class="calc-note">项目内部数据可用性门槛，不作为法律合规标准。</p>
@@ -331,7 +351,7 @@ function resetAll() {
           <p class="form-desc">检测内容</p>
           <div class="checkbox-group tight">
             <label v-for="n in fieldNames" :key="n" class="checkbox-item">
-              <input v-model="fields[n]" type="checkbox" :disabled="flow.isDone('quality-rule')" />{{ n }}
+              <input v-model="fields[n]" type="checkbox" />{{ n }}
             </label>
           </div>
           <p class="calc-caption">完整率 ≥ {{ rule.threshold }}% → 通过；完整率 ＜ {{ rule.threshold }}% → 退回补采。</p>
@@ -344,7 +364,8 @@ function resetAll() {
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">检测方式</span>
-              <select v-model="rule.method" class="form-control" :disabled="flow.isDone('quality-rule')">
+              <select v-model="rule.method" class="form-control">
+                <option value="">请选择</option>
                 <option>多源交叉验证</option>
                 <option>单源比对</option>
               </select>
@@ -354,7 +375,7 @@ function resetAll() {
           <p class="form-desc">核验来源</p>
           <div class="checkbox-group">
             <label v-for="n in sourceNames" :key="n" class="checkbox-item">
-              <input v-model="crossSources[n]" type="checkbox" :disabled="flow.isDone('quality-rule')" />{{ n }}
+              <input v-model="crossSources[n]" type="checkbox" />{{ n }}
             </label>
           </div>
           <p class="calc-note">统计异常 ≠ 错误数据：异常值保留 → 多源业务复核 → 确认真实后进入模型。</p>
@@ -383,13 +404,12 @@ function resetAll() {
         <!-- 规则配置 → 质量异常处置 -->
         <template v-else-if="leaf === 'disposal-rule'">
           <div class="sys-toolbar">
-            <button type="button" class="secondary-button" :disabled="flow.isDone('disposal-rule')"
+            <button type="button" class="secondary-button"
               @click="disposalIds.forEach((id) => (disposalEnabled[id] = true))">全部启用</button>
             <button
               type="button"
               class="primary-button"
-              :disabled="flow.isDone('disposal-rule')"
-              @click="save('disposal-rule', () => (enabledDisposal.length === 4 ? '' : `还有 ${4 - enabledDisposal.length} 项处置规则未启用`))"
+              @click="save('disposal-rule')"
             >
               启用规则
             </button>
@@ -400,7 +420,7 @@ function resetAll() {
               <thead><tr><th style="width: 56px">启用</th><th>规则</th><th>条件</th><th>状态</th><th>动作</th></tr></thead>
               <tbody>
                 <tr v-for="row in disposalRules" :key="row.id">
-                  <td><input v-model="disposalEnabled[row.id]" type="checkbox" :disabled="flow.isDone('disposal-rule')" /></td>
+                  <td><input v-model="disposalEnabled[row.id]" type="checkbox" /></td>
                   <th scope="row">{{ row.id }}</th>
                   <td>{{ row.when }}</td>
                   <td>{{ row.state }}</td>
@@ -426,8 +446,7 @@ function resetAll() {
             <button
               type="button"
               class="primary-button"
-              :disabled="flow.isDone('veto-rule')"
-              @click="save('veto-rule', () => (judgeMode === '一票否决' ? '' : '强制性合规项不采用综合得分，请将判定模式设置为一票否决'))"
+              @click="save('veto-rule', () => (judgeMode ? '' : '判定模式为必填项'))"
             >
               保存否决规则
             </button>
@@ -439,7 +458,6 @@ function resetAll() {
               :key="mode"
               type="button"
               :class="{ active: judgeMode === mode }"
-              :disabled="flow.isDone('veto-rule')"
               @click="judgeMode = mode"
             >
               {{ mode }}
@@ -472,17 +490,12 @@ function resetAll() {
         <!-- 合规知识库 → 规则依据管理 -->
         <template v-else-if="leaf === 'evidence-rule'">
           <div class="sys-toolbar">
-            <button type="button" class="secondary-button" :disabled="flow.isDone('evidence-rule')"
+            <button type="button" class="secondary-button"
               @click="docNames.forEach((n) => (docs[n] = true))">全部挂接</button>
             <button
               type="button"
               class="primary-button"
-              :disabled="flow.isDone('evidence-rule')"
-              @click="save('evidence-rule', () => {
-                if (attachedDocs.length !== docNames.length) return `还有 ${docNames.length - attachedDocs.length} 份制度依据未挂接`
-                if (referenceMode !== '每项检测规则必须绑定对应制度依据') return '每项检测规则必须绑定对应制度依据'
-                return ''
-              })"
+              @click="save('evidence-rule', () => (referenceMode ? '' : '规则引用方式为必填项'))"
             >
               完成规则挂接
             </button>
@@ -492,7 +505,7 @@ function resetAll() {
             <span class="form-label">{{ level.level }} · {{ level.name }}</span>
             <div class="checkbox-group">
               <label v-for="doc in level.docs" :key="doc" class="checkbox-item">
-                <input v-model="docs[doc]" type="checkbox" :disabled="flow.isDone('evidence-rule')" />{{ doc }}
+                <input v-model="docs[doc]" type="checkbox" />{{ doc }}
               </label>
             </div>
           </div>
@@ -503,7 +516,6 @@ function resetAll() {
               :key="mode"
               type="button"
               :class="{ active: referenceMode === mode }"
-              :disabled="flow.isDone('evidence-rule')"
               @click="referenceMode = mode"
             >
               {{ mode }}
@@ -530,8 +542,13 @@ function resetAll() {
             <button
               type="button"
               class="primary-button"
-              :disabled="flow.isDone('detect-run')"
-              @click="save('detect-run', () => (pendingRulePages.length ? `还有 ${pendingRulePages.length} 个功能页未办理：${pendingRulePages.join('、')}` : ''))"
+              @click="save('detect-run', () => {
+                if (pendingRulePages.length) return `还有 ${pendingRulePages.length} 个功能页未办理：${pendingRulePages.join('、')}`
+                if (!filled(quality.completeness)) return '数据完整率为必填项'
+                if (!filled(quality.timeliness)) return '数据及时率为必填项'
+                if (!filled(quality.pendingReview)) return '未完成业务复核的统计异常为必填项'
+                return ''
+              })"
             >
               开始检测
             </button>
@@ -621,15 +638,14 @@ function resetAll() {
         <!-- 数据共享中心 → 洪涝应急救援项目 → 校验单管理 -->
         <template v-else-if="leaf === 'report-manage'">
           <div class="sys-toolbar">
-            <button type="button" class="secondary-button" :disabled="flow.isDone('report-manage') || reportGenerated" @click="generateReport">生成检测报告</button>
+            <button type="button" class="secondary-button" @click="generateReport">生成检测报告</button>
             <button
               type="button"
               class="primary-button"
-              :disabled="flow.isDone('report-manage')"
               @click="save('report-manage', () => {
                 if (!flow.isDone('detect-run')) return '请先在「检测执行与判定」功能页执行自动检测并生成准入判定结果'
                 if (!reportGenerated) return '请先生成《灾情数据质量与合规校验单》'
-                if (reviewer !== '财务主管统筹岗') return '《灾情数据质量与合规校验单》须由财务主管统筹岗审核确认'
+                if (!reviewer) return '审核人为必填项'
                 return ''
               })"
             >
@@ -639,7 +655,8 @@ function resetAll() {
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">审核人</span>
-              <select v-model="reviewer" class="form-control" :disabled="flow.isDone('report-manage')">
+              <select v-model="reviewer" class="form-control">
+                <option value="">请选择</option>
                 <option>财务主管统筹岗</option>
                 <option>应急预算绩效岗</option>
                 <option>资金核算风控岗</option>
@@ -665,11 +682,8 @@ function resetAll() {
             <button
               type="button"
               class="primary-button"
-              :disabled="flow.isDone('share-publish')"
               @click="save('share-publish', () => {
                 if (!flow.isDone('report-manage')) return '请先在「校验单管理」功能页完成《灾情数据质量与合规校验单》审核确认'
-                if (chosenTargets.length !== 4) return `共享对象还有 ${4 - chosenTargets.length} 个岗位未选择`
-                if (chosenContents.length !== 3) return `共享内容还有 ${3 - chosenContents.length} 项未选择`
                 return ''
               })"
             >
@@ -679,13 +693,13 @@ function resetAll() {
           <p class="form-desc">共享对象</p>
           <div class="checkbox-group">
             <label v-for="n in shareTargetNames" :key="n" class="checkbox-item">
-              <input v-model="shareTargets[n]" type="checkbox" :disabled="flow.isDone('share-publish')" />{{ n }}
+              <input v-model="shareTargets[n]" type="checkbox" />{{ n }}
             </label>
           </div>
           <p class="form-desc">共享内容</p>
           <div class="checkbox-group">
             <label v-for="n in shareContentNames" :key="n" class="checkbox-item">
-              <input v-model="shareContents[n]" type="checkbox" :disabled="flow.isDone('share-publish')" />
+              <input v-model="shareContents[n]" type="checkbox" />
               {{ n === '模型准入状态' ? `模型准入状态：${admissionState}` : n }}
             </label>
           </div>
