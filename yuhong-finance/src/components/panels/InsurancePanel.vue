@@ -384,7 +384,7 @@ function resetAll() {
           </table>
           <template v-if="flow.isDone('rules')">
             <p class="sys-toast" :class="{ warn: !weightBalanced }">
-              {{ insuranceCriteria.length }} 项指标权重合计 {{ num(weightTotal, 2)}%，{{
+              {{ insuranceCriteria.length }} 项指标权重合计 {{ num(weightTotal, 2) }}%，{{
                 weightBalanced ? '评分规则已生效' : '偏离 100%，下方评分结果仅供试算'
               }}。
             </p>
