@@ -1,8 +1,8 @@
 <script setup>
-// S2 库存异常与紧急分单处置操作台。采购岗、预算岗、风控岗与统筹岗按业务顺序接力，每完成一项操作平台即回写处置结果。
+// 应急采购管理系统 · S2 库存异常与紧急分单。登录后从左侧菜单逐级进入功能页办理。
 import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
-import OperationBlock from './OperationBlock.vue'
+import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import {
   changeOrder,
@@ -21,7 +21,7 @@ import {
 } from '../../domain/procurement.js'
 import { money, num, percent, signedPercent } from '../../domain/format.js'
 
-const OPS = [
+const PAGES = [
   'verify',
   'impact',
   'gridImpact',
@@ -40,7 +40,93 @@ const OPS = [
   'payRules',
   'dispatch',
 ]
-const flow = useTaskFlow('s2-t5', OPS)
+const flow = useTaskFlow('s2-t5', PAGES)
+
+const menu = [
+  {
+    id: 'm-inv',
+    label: '库存管理',
+    children: [
+      {
+        id: 'm-inv-alert',
+        label: '异常监测',
+        children: [{ id: 'verify', label: '库存异常核验' }],
+      },
+      {
+        id: 'm-inv-impact',
+        label: '影响分析',
+        children: [
+          { id: 'impact', label: '合同影响测算' },
+          { id: 'gridImpact', label: '网格保障影响' },
+        ],
+      },
+      {
+        id: 'm-inv-transfer',
+        label: '可调拨资源',
+        children: [{ id: 'transferable', label: '可调拨核验' }],
+      },
+    ],
+  },
+  {
+    id: 'm-exec',
+    label: '采购执行',
+    children: [
+      {
+        id: 'm-exec-contract',
+        label: '合同执行',
+        children: [{ id: 'pause', label: '暂停供货' }],
+      },
+      {
+        id: 'm-exec-inquiry',
+        label: '紧急询价',
+        children: [
+          { id: 'inquiry', label: '备选询价' },
+          { id: 'fixed', label: '固定安置物资锁定' },
+        ],
+      },
+      { id: 'dispatch', label: '调度下达' },
+    ],
+  },
+  {
+    id: 'm-split',
+    label: '应急分单',
+    children: [
+      { id: 'model', label: '模型配置' },
+      { id: 'solve', label: '模型求解' },
+      { id: 'plan', label: '分单方案' },
+      { id: 'decision', label: '处置决策' },
+    ],
+  },
+  {
+    id: 'm-contract',
+    label: '合同管理',
+    children: [
+      {
+        id: 'm-contract-change',
+        label: '变更管理',
+        children: [{ id: 'change', label: '变更单' }],
+      },
+      {
+        id: 'm-contract-emergency',
+        label: '紧急合同',
+        children: [{ id: 'emergency', label: '紧急合同编制' }],
+      },
+    ],
+  },
+  {
+    id: 'm-budget',
+    label: '预算管理',
+    children: [
+      { id: 'recost', label: '成本重估' },
+      { id: 'reoccupy', label: '预算重占用' },
+    ],
+  },
+  {
+    id: 'm-fund',
+    label: '资金核算',
+    children: [{ id: 'payRules', label: '付款规则调整' }],
+  },
+]
 
 const EVIDENCE = ['S2实时库存台账', '仓库出入库记录', '车辆调度记录', '仓库视频', '物流预计到达时间']
 
@@ -58,6 +144,7 @@ const BASELINE_PRICE = 846.25
 const SOLVER_NOTE =
   '在规划求解中将 Z 设为最小值，改变 x1、x3、y1、y3 四个决策单元格，添加数量、供应能力、整数、0-1 变量和时限约束。'
 
+const activeId = ref('')
 const evidence = reactive(Object.fromEntries(EVIDENCE.map((item) => [item, false])))
 const delivery = reactive({
   original: incident.originalQuantity,
@@ -105,6 +192,7 @@ const otherLineText = computed(() =>
 const tentCostBefore = computed(() => changeOrder.tentBefore * changeOrder.unitPrice)
 const tentCostAfter = computed(() => tentCostBefore.value + impact.value.increment)
 const deviation = computed(() => (impact.value.goodsUnitCost - BASELINE_PRICE) / BASELINE_PRICE)
+const pendingPages = computed(() => PAGES.filter((id) => id !== 'dispatch' && !flow.isDone(id)))
 
 const emergency = changeOrder.emergencyContract
 
@@ -156,6 +244,13 @@ function checkDecision() {
   return ''
 }
 
+function checkDispatch() {
+  if (pendingPages.value.length) {
+    return `还有 ${pendingPages.value.length} 个功能页未办理，无法下达调度`
+  }
+  return ''
+}
+
 function resetAll() {
   flow.reset()
   EVIDENCE.forEach((item) => { evidence[item] = false })
@@ -173,746 +268,664 @@ function resetAll() {
 
 <template>
   <PanelShell title="突发事件处置：S2库存异常与紧急分单" source="履约异常处置">
-    <div class="op-progress">
-      <div class="op-progress-track">
-        <span class="op-progress-fill" :style="{ width: `${(flow.progress.value.done / flow.progress.value.total) * 100}%` }" />
-      </div>
-      <span class="op-progress-text">{{ flow.progress.value.done }} / {{ flow.progress.value.total }} 项操作完成</span>
-      <button type="button" class="text-button" @click="resetAll">重置</button>
-    </div>
-
-    <p v-if="error" class="sys-toast danger">{{ error }}</p>
-
-    <div class="op-flow">
-      <OperationBlock
-        title="核验库存异常真实性"
-        hint="采购成本保障岗"
-        :status="flow.status('verify')"
-        done-label="异常已核实"
-      >
-        <p class="form-desc">{{ incident.title }}，调取以下证据来源交叉核验。</p>
-        <div class="checkbox-group">
-          <label v-for="item in EVIDENCE" :key="item" class="checkbox-item">
-            <input v-model="evidence[item]" type="checkbox" :disabled="flow.isDone('verify')" />{{ item }}
-          </label>
-        </div>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('verify')" @click="run('verify', checkEvidence)">
-            交叉核验
-          </button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast warn">经交叉核验，S2 仓库局部进水属实，不属于虚假库存或恶意拒绝履约。</p>
-          <ul class="sys-lines">
-            <li v-for="item in chosenEvidence" :key="item">{{ item }} · 已调取比对</li>
-          </ul>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="识别合同影响"
-        hint="采购成本保障岗"
-        :status="flow.status('impact')"
-        done-label="缺口已测算"
-      >
-        <div class="input-row">
-          <label>原合同帐篷数量</label>
-          <input v-model.number="delivery.original" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
-          <span class="input-unit">顶</span>
-        </div>
-        <div class="input-row">
-          <label>12 小时内可交付</label>
-          <input v-model.number="delivery.hours12" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
-          <span class="input-unit">顶</span>
-        </div>
-        <div class="input-row">
-          <label>24 小时内可交付</label>
-          <input v-model.number="delivery.hours24" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
-          <span class="input-unit">顶</span>
-        </div>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('impact')" @click="run('impact', checkImpact)">
-            测算缺口
-          </button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast warn">
-            原合同 {{ num(original, 0) }} 顶中，{{ num(hours12, 0) }} 顶 12 小时内可交付、{{ num(hours24, 0) }} 顶 24 小时内可交付，
-            无法确定交付 {{ num(undeliverable, 0) }} 顶。
-          </p>
-          <p class="block-formula">12 小时保障缺口 = {{ num(original, 0) }} － {{ num(hours12, 0) }} = {{ num(gap12h, 0) }} 顶</p>
-          <p class="block-formula">最终合同供应缺口 = {{ num(original, 0) }} － {{ num(retained, 0) }} = {{ num(contractGap, 0) }} 顶</p>
-          <div class="stat-grid">
-            <div class="stat-cell">
-              <span class="stat-label">12 小时保障缺口</span>
-              <strong class="stat-value warn">{{ num(gap12h, 0) }} 顶</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">最终合同供应缺口</span>
-              <strong class="stat-value accent">{{ num(contractGap, 0) }} 顶</strong>
-            </div>
+    <SystemShell
+      system="应急采购管理系统"
+      operator="采购成本保障岗"
+      login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
+      :menu="menu"
+      :completed="flow.done.value"
+      :error="error"
+      v-model:active-id="activeId"
+      @reset="resetAll"
+    >
+      <template #default="{ leaf }">
+        <!-- 库存管理 → 异常监测 → 库存异常核验 -->
+        <template v-if="leaf === 'verify'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('verify')" @click="run('verify', checkEvidence)">
+              交叉核验
+            </button>
           </div>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="测算网格保障影响"
-        hint="应急预算绩效岗"
-        :status="flow.status('gridImpact')"
-        done-label="保障影响已测算"
-      >
-        <dl class="block-fields">
-          <div class="field-row"><dt>12 小时保障缺口</dt><dd>{{ num(gap12h, 0) }} 顶</dd></div>
-          <div class="field-row"><dt>每顶帐篷容纳</dt><dd>{{ shelterPlan.tentCapacity }} 人</dd></div>
-          <div class="field-row"><dt>重点保障网格</dt><dd>甲3、甲6</dd></div>
-        </dl>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('gridImpact')" @click="run('gridImpact')">
-            测算影响
-          </button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast warn">
-            如不调整，甲3、甲6 约 {{ num(affectedPeople, 0) }} 名受灾群众无法按计划完成临时安置。
-          </p>
-          <p class="block-formula">
-            受影响人数 = {{ num(gap12h, 0) }} 顶 × {{ shelterPlan.tentCapacity }} 人/顶 = {{ num(affectedPeople, 0) }} 人
-          </p>
-          <p class="block-formula">
-            第一批帐篷到位率 = {{ num(hours12, 0) }} / {{ num(original, 0) }} × 100% = {{ percent(arrivalRate, 0) }}
-          </p>
-          <div class="stat-grid">
-            <div class="stat-cell">
-              <span class="stat-label">受影响安置人数</span>
-              <strong class="stat-value warn">{{ num(affectedPeople, 0) }} 人</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">第一批帐篷到位率</span>
-              <strong class="stat-value warn">{{ percent(arrivalRate, 0) }}</strong>
-            </div>
+          <p class="form-desc">{{ incident.title }}，调取以下证据来源交叉核验。</p>
+          <div class="checkbox-group">
+            <label v-for="item in EVIDENCE" :key="item" class="checkbox-item">
+              <input v-model="evidence[item]" type="checkbox" :disabled="flow.isDone('verify')" />{{ item }}
+            </label>
           </div>
+          <template v-if="flow.isDone('verify')">
+            <p class="sys-toast warn">经交叉核验，S2 仓库局部进水属实，不属于虚假库存或恶意拒绝履约。</p>
+            <ul class="sys-lines">
+              <li v-for="item in chosenEvidence" :key="item">{{ item }} · 已调取比对</li>
+            </ul>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        title="查询网格可调拨量"
-        hint="应急预算绩效岗"
-        :status="flow.status('transferable')"
-        done-label="可调拨量已汇总"
-      >
-        <table class="calc-table compact">
-          <thead>
-            <tr>
-              <th>调出网格</th>
-              <th>调入网格</th>
-              <th style="width: 120px">可调出上限</th>
-              <th style="width: 130px">本次调出</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in transferRows" :key="`${row.from}-${row.to}`">
-              <th scope="row">{{ row.from }}</th>
-              <td>{{ row.to }}</td>
-              <td>{{ num(row.max, 0) }} 顶</td>
-              <td>
-                <input v-model.number="row.quantity" type="number" min="0" :max="row.max" step="5" :disabled="flow.isDone('transferable')" />
-              </td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row">合计</th>
-              <td colspan="2">—</td>
-              <td class="col-total">{{ num(transferTotal, 0) }} 顶</td>
-            </tr>
-          </tfoot>
-        </table>
-        <p class="form-desc">按数据透视表汇总各网格帐篷到位量和最低保障线，调出量不得突破本网格最低保障线。</p>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('transferable')" @click="run('transferable', checkTransfers)">
-            汇总可调拨量
-          </button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">
-            临时调拨量 {{ num(transferTotal, 0) }} 顶，可暂时保障 {{ num(transferPeople, 0) }} 人。
-          </p>
-          <p class="block-formula">
-            临时调拨量 = {{ transferRows.map((row) => num(row.quantity, 0)).join(' + ') }} = {{ num(transferTotal, 0) }} 顶
-          </p>
-          <p class="block-formula">
-            剩余需紧急分单采购数量 = {{ num(gap12h, 0) }} － {{ num(transferTotal, 0) }} = {{ num(splitRequired, 0) }} 顶
-          </p>
-          <ul class="sys-lines">
-            <li v-for="row in transferRows" :key="`${row.from}-${row.to}`">
-              {{ row.from }} 可调出 {{ num(row.quantity, 0) }} 顶至 {{ row.to }}
-            </li>
-            <li class="info">调拨后各网格最低保障完成率仍不低于 80%</li>
-          </ul>
+        <!-- 库存管理 → 影响分析 → 合同影响测算 -->
+        <template v-else-if="leaf === 'impact'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('impact')" @click="run('impact', checkImpact)">
+              测算缺口
+            </button>
+          </div>
+          <div class="input-row">
+            <label>原合同帐篷数量</label>
+            <input v-model.number="delivery.original" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
+            <span class="input-unit">顶</span>
+          </div>
+          <div class="input-row">
+            <label>12 小时内可交付</label>
+            <input v-model.number="delivery.hours12" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
+            <span class="input-unit">顶</span>
+          </div>
+          <div class="input-row">
+            <label>24 小时内可交付</label>
+            <input v-model.number="delivery.hours24" type="number" min="0" step="10" :disabled="flow.isDone('impact')" />
+            <span class="input-unit">顶</span>
+          </div>
+          <template v-if="flow.isDone('impact')">
+            <p class="sys-toast warn">
+              原合同 {{ num(original, 0) }} 顶中，{{ num(hours12, 0) }} 顶 12 小时内可交付、{{ num(hours24, 0) }} 顶 24 小时内可交付，
+              无法确定交付 {{ num(undeliverable, 0) }} 顶。
+            </p>
+            <p class="block-formula">12 小时保障缺口 = {{ num(original, 0) }} － {{ num(hours12, 0) }} = {{ num(gap12h, 0) }} 顶</p>
+            <p class="block-formula">最终合同供应缺口 = {{ num(original, 0) }} － {{ num(retained, 0) }} = {{ num(contractGap, 0) }} 顶</p>
+            <div class="stat-grid">
+              <div class="stat-cell">
+                <span class="stat-label">12 小时保障缺口</span>
+                <strong class="stat-value warn">{{ num(gap12h, 0) }} 顶</strong>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">最终合同供应缺口</span>
+                <strong class="stat-value accent">{{ num(contractGap, 0) }} 顶</strong>
+              </div>
+            </div>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        title="暂停原付款计划"
-        hint="资金核算风控岗"
-        :status="flow.status('pause')"
-        done-label="付款计划已暂停"
-      >
-        <dl class="block-fields">
-          <div class="field-row"><dt>合同编号</dt><dd>{{ changeOrder.contractCode }}</dd></div>
-          <div class="field-row"><dt>当前状态</dt><dd>履约中</dd></div>
-          <div class="field-row"><dt>拟调整为</dt><dd>履约变更审核中</dd></div>
-        </dl>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('pause')" @click="run('pause')">暂停付款</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast warn">
-            {{ changeOrder.contractCode }} 状态调整为「履约变更审核中」，暂停 {{ num(original, 0) }} 顶帐篷对应预计付款。
-          </p>
-          <ul class="sys-lines">
-            <li class="info">不影响{{ otherLineText }}等合同物资正常履约</li>
-            <li class="info">不影响食品、饮用水应急零售/框架协议直采执行</li>
-          </ul>
+        <!-- 库存管理 → 影响分析 → 网格保障影响 -->
+        <template v-else-if="leaf === 'gridImpact'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('gridImpact')" @click="run('gridImpact')">
+              测算影响
+            </button>
+          </div>
+          <dl class="block-fields">
+            <div class="field-row"><dt>12 小时保障缺口</dt><dd>{{ num(gap12h, 0) }} 顶</dd></div>
+            <div class="field-row"><dt>每顶帐篷容纳</dt><dd>{{ shelterPlan.tentCapacity }} 人</dd></div>
+            <div class="field-row"><dt>重点保障网格</dt><dd>甲3、甲6</dd></div>
+          </dl>
+          <template v-if="flow.isDone('gridImpact')">
+            <p class="sys-toast warn">
+              如不调整，甲3、甲6 约 {{ num(affectedPeople, 0) }} 名受灾群众无法按计划完成临时安置。
+            </p>
+            <p class="block-formula">
+              受影响人数 = {{ num(gap12h, 0) }} 顶 × {{ shelterPlan.tentCapacity }} 人/顶 = {{ num(affectedPeople, 0) }} 人
+            </p>
+            <p class="block-formula">
+              第一批帐篷到位率 = {{ num(hours12, 0) }} / {{ num(original, 0) }} × 100% = {{ percent(arrivalRate, 0) }}
+            </p>
+            <div class="stat-grid">
+              <div class="stat-cell">
+                <span class="stat-label">受影响安置人数</span>
+                <strong class="stat-value warn">{{ num(affectedPeople, 0) }} 人</strong>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">第一批帐篷到位率</span>
+                <strong class="stat-value warn">{{ percent(arrivalRate, 0) }}</strong>
+              </div>
+            </div>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        title="备选供应商紧急询价"
-        hint="采购成本保障岗"
-        :status="flow.status('inquiry')"
-        done-label="询价结果已回传"
-      >
-        <div class="score-table-wrap">
+        <!-- 库存管理 → 可调拨资源 → 可调拨核验 -->
+        <template v-else-if="leaf === 'transferable'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('transferable')" @click="run('transferable', checkTransfers)">
+              汇总可调拨量
+            </button>
+          </div>
           <table class="calc-table compact">
             <thead>
               <tr>
-                <th>供应商</th>
-                <th>可供应量</th>
-                <th>货物报价</th>
-                <th>到货时间</th>
-                <th>车辆应急调度</th>
-                <th>装卸人工</th>
+                <th>调出网格</th>
+                <th>调入网格</th>
+                <th style="width: 120px">可调出上限</th>
+                <th style="width: 130px">本次调出</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="q in quotes" :key="q.id">
-                <th scope="row">{{ q.id }}</th>
-                <td>{{ num(q.capacity, 0) }} 顶</td>
-                <td>{{ money(q.unitPrice, 0) }} 元/顶</td>
-                <td>{{ q.arrivalHours }} 小时</td>
+              <tr v-for="row in transferRows" :key="`${row.from}-${row.to}`">
+                <th scope="row">{{ row.from }}</th>
+                <td>{{ row.to }}</td>
+                <td>{{ num(row.max, 0) }} 顶</td>
                 <td>
-                  {{ q.vehicleCost.vehicles }}辆 × {{ q.vehicleCost.hours }}小时 × {{ money(q.vehicleCost.rate, 0) }}元/车小时
-                  = {{ money(q.vehicleCost.total, 0) }} 元
-                </td>
-                <td>
-                  {{ q.laborCost.workers }}人 × {{ q.laborCost.hours }}小时 × {{ money(q.laborCost.rate, 0) }}元/人小时
-                  = {{ money(q.laborCost.total, 0) }} 元
+                  <input v-model.number="row.quantity" type="number" min="0" :max="row.max" step="5" :disabled="flow.isDone('transferable')" />
                 </td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">合计</th>
+                <td colspan="2">—</td>
+                <td class="col-total">{{ num(transferTotal, 0) }} 顶</td>
+              </tr>
+            </tfoot>
           </table>
-        </div>
-        <p class="form-desc">重点比较货物价格、运费增加、人工增加成本、可供应量和到货时间。</p>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('inquiry')" @click="run('inquiry')">
-            发起紧急询价
-          </button>
-        </div>
+          <p class="form-desc">按数据透视表汇总各网格帐篷到位量和最低保障线，调出量不得突破本网格最低保障线。</p>
+          <template v-if="flow.isDone('transferable')">
+            <p class="sys-toast">
+              临时调拨量 {{ num(transferTotal, 0) }} 顶，可暂时保障 {{ num(transferPeople, 0) }} 人。
+            </p>
+            <p class="block-formula">
+              临时调拨量 = {{ transferRows.map((row) => num(row.quantity, 0)).join(' + ') }} = {{ num(transferTotal, 0) }} 顶
+            </p>
+            <p class="block-formula">
+              剩余需紧急分单采购数量 = {{ num(gap12h, 0) }} － {{ num(transferTotal, 0) }} = {{ num(splitRequired, 0) }} 顶
+            </p>
+            <ul class="sys-lines">
+              <li v-for="row in transferRows" :key="`${row.from}-${row.to}`">
+                {{ row.from }} 可调出 {{ num(row.quantity, 0) }} 顶至 {{ row.to }}
+              </li>
+              <li class="info">调拨后各网格最低保障完成率仍不低于 80%</li>
+            </ul>
+          </template>
+        </template>
 
-        <template #result>
-          <p class="sys-toast">S1、S3 紧急询价结果已回传，按 {{ splitModel.required }} 顶口径测算综合到岸成本。</p>
-          <ul class="sys-lines">
-            <li v-for="q in quotes" :key="q.id">
-              {{ q.id }} 货物金额 {{ num(q.quantity, 0) }} × {{ money(q.unitPrice, 0) }} = {{ money(q.goods, 0) }} 元，
-              运费和人工增加成本 {{ money(q.vehicleCost.total, 0) }} + {{ money(q.laborCost.total, 0) }} = {{ money(q.fixedCost, 0) }} 元
-            </li>
-          </ul>
+        <!-- 采购执行 → 合同执行 → 暂停供货 -->
+        <template v-else-if="leaf === 'pause'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('pause')" @click="run('pause')">暂停付款</button>
+          </div>
+          <dl class="block-fields">
+            <div class="field-row"><dt>合同编号</dt><dd>{{ changeOrder.contractCode }}</dd></div>
+            <div class="field-row"><dt>当前状态</dt><dd>履约中</dd></div>
+            <div class="field-row"><dt>拟调整为</dt><dd>履约变更审核中</dd></div>
+          </dl>
+          <template v-if="flow.isDone('pause')">
+            <p class="sys-toast warn">
+              {{ changeOrder.contractCode }} 状态调整为「履约变更审核中」，暂停 {{ num(original, 0) }} 顶帐篷对应预计付款。
+            </p>
+            <ul class="sys-lines">
+              <li class="info">不影响{{ otherLineText }}等合同物资正常履约</li>
+              <li class="info">不影响食品、饮用水应急零售/框架协议直采执行</li>
+            </ul>
+          </template>
+        </template>
+
+        <!-- 采购执行 → 紧急询价 → 备选询价 -->
+        <template v-else-if="leaf === 'inquiry'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('inquiry')" @click="run('inquiry')">
+              发起紧急询价
+            </button>
+          </div>
           <div class="score-table-wrap">
             <table class="calc-table compact">
               <thead>
                 <tr>
                   <th>供应商</th>
-                  <th>货物金额</th>
-                  <th>运费与人工增加</th>
-                  <th class="col-total">综合到岸成本</th>
-                  <th>综合到岸单价</th>
+                  <th>可供应量</th>
+                  <th>货物报价</th>
                   <th>到货时间</th>
+                  <th>车辆应急调度</th>
+                  <th>装卸人工</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="q in quotes" :key="q.id">
                   <th scope="row">{{ q.id }}</th>
-                  <td>{{ money(q.goods, 0) }} 元</td>
-                  <td>{{ money(q.fixedCost, 0) }} 元</td>
-                  <td class="col-total">{{ money(q.landed, 0) }} 元</td>
-                  <td>{{ money(q.unitLanded, 2) }} 元/顶</td>
+                  <td>{{ num(q.capacity, 0) }} 顶</td>
+                  <td>{{ money(q.unitPrice, 0) }} 元/顶</td>
                   <td>{{ q.arrivalHours }} 小时</td>
+                  <td>
+                    {{ q.vehicleCost.vehicles }}辆 × {{ q.vehicleCost.hours }}小时 × {{ money(q.vehicleCost.rate, 0) }}元/车小时
+                    = {{ money(q.vehicleCost.total, 0) }} 元
+                  </td>
+                  <td>
+                    {{ q.laborCost.workers }}人 × {{ q.laborCost.hours }}小时 × {{ money(q.laborCost.rate, 0) }}元/人小时
+                    = {{ money(q.laborCost.total, 0) }} 元
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
+          <p class="form-desc">重点比较货物价格、运费增加、人工增加成本、可供应量和到货时间。</p>
+          <template v-if="flow.isDone('inquiry')">
+            <p class="sys-toast">S1、S3 紧急询价结果已回传，按 {{ splitModel.required }} 顶口径测算综合到岸成本。</p>
+            <ul class="sys-lines">
+              <li v-for="q in quotes" :key="q.id">
+                {{ q.id }} 货物金额 {{ num(q.quantity, 0) }} × {{ money(q.unitPrice, 0) }} = {{ money(q.goods, 0) }} 元，
+                运费和人工增加成本 {{ money(q.vehicleCost.total, 0) }} + {{ money(q.laborCost.total, 0) }} = {{ money(q.fixedCost, 0) }} 元
+              </li>
+            </ul>
+            <div class="score-table-wrap">
+              <table class="calc-table compact">
+                <thead>
+                  <tr>
+                    <th>供应商</th>
+                    <th>货物金额</th>
+                    <th>运费与人工增加</th>
+                    <th class="col-total">综合到岸成本</th>
+                    <th>综合到岸单价</th>
+                    <th>到货时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="q in quotes" :key="q.id">
+                    <th scope="row">{{ q.id }}</th>
+                    <td>{{ money(q.goods, 0) }} 元</td>
+                    <td>{{ money(q.fixedCost, 0) }} 元</td>
+                    <td class="col-total">{{ money(q.landed, 0) }} 元</td>
+                    <td>{{ money(q.unitLanded, 2) }} 元/顶</td>
+                    <td>{{ q.arrivalHours }} 小时</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        title="识别订单级固定附加成本"
-        hint="采购成本保障岗"
-        :status="flow.status('fixed')"
-        done-label="固定成本已识别"
-      >
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('fixed')" @click="run('fixed')">识别固定成本</button>
-        </div>
-
-        <template #result>
-          <ul class="sys-lines">
-            <li v-for="q in quotes" :key="q.id">
-              {{ q.id }} 订单固定附加成本 = {{ money(q.vehicleCost.total, 0) }} + {{ money(q.laborCost.total, 0) }} = {{ money(q.fixedCost, 0) }} 元；
-              若由 {{ q.id }} 独立供应 {{ num(q.quantity, 0) }} 顶，满量综合成本 {{ money(q.landed, 0) }} 元
-            </li>
-            <li class="warn">车辆应急调度和装卸人工属于启用某供应商即发生的订单级固定成本，不按采购数量简单线性分摊</li>
-            <li class="info">单位综合成本仅作为满量采购的参考口径</li>
-          </ul>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="建立分单组合优化模型"
-        hint="采购成本保障岗"
-        :status="flow.status('model')"
-        done-label="优化模型已建立"
-      >
-        <p class="form-desc">
-          设 x1、x3 分别为向 S1、S3 采购的帐篷数量，y1、y3 分别表示是否启用该供应商（启用=1，不启用=0）。
-        </p>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('model')" @click="run('model')">建立模型</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">分单组合优化模型已建立。</p>
-          <p class="block-formula">{{ splitModel.objective }}</p>
-          <ul class="constraint-list">
-            <li v-for="(item, index) in splitModel.constraints" :key="index">{{ item }}</li>
-          </ul>
-          <p class="calc-note">{{ SOLVER_NOTE }}</p>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="规划求解"
-        hint="采购成本保障岗"
-        :status="flow.status('solve')"
-        done-label="最优解已求出"
-      >
-        <div class="solver">
-          <label class="solver-label">向 S1 采购 x1 = <strong>{{ x1 }}</strong> 顶</label>
-          <input
-            v-model.number="x1"
-            type="range"
-            min="0"
-            :max="splitModel.required"
-            step="10"
-            class="solver-range"
-            :disabled="flow.isDone('solve')"
-          />
-          <p class="solver-derived">
-            向 S3 采购 x3 = {{ splitModel.required - x1 }} 顶 ｜ y1 = {{ current.y1 }}，y3 = {{ current.y3 }}
-          </p>
-
-          <div class="solver-breakdown">
-            <div><span>货物成本</span><strong>{{ money(current.goods, 0) }} 元</strong></div>
-            <div><span>订单固定成本</span><strong>{{ money(current.fixed, 0) }} 元</strong></div>
-            <div class="solver-total"><span>目标函数 Z</span><strong>{{ money(current.total, 0) }} 元</strong></div>
+        <!-- 采购执行 → 紧急询价 → 固定安置物资锁定 -->
+        <template v-else-if="leaf === 'fixed'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('fixed')" @click="run('fixed')">识别固定成本</button>
           </div>
+          <template v-if="flow.isDone('fixed')">
+            <ul class="sys-lines">
+              <li v-for="q in quotes" :key="q.id">
+                {{ q.id }} 订单固定附加成本 = {{ money(q.vehicleCost.total, 0) }} + {{ money(q.laborCost.total, 0) }} = {{ money(q.fixedCost, 0) }} 元；
+                若由 {{ q.id }} 独立供应 {{ num(q.quantity, 0) }} 顶，满量综合成本 {{ money(q.landed, 0) }} 元
+              </li>
+              <li class="warn">车辆应急调度和装卸人工属于启用某供应商即发生的订单级固定成本，不按采购数量简单线性分摊</li>
+              <li class="info">单位综合成本仅作为满量采购的参考口径</li>
+            </ul>
+          </template>
+        </template>
 
-          <p v-if="current.violations.length" class="solver-violation">约束不满足：{{ current.violations.join('；') }}</p>
-          <p v-else-if="isOptimal" class="solver-optimal">
-            当前组合即为最优解 x1={{ solution.optimal.x1 }}、x3={{ solution.optimal.x3 }}。
+        <!-- 应急分单 → 模型配置 -->
+        <template v-else-if="leaf === 'model'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('model')" @click="run('model')">建立模型</button>
+          </div>
+          <p class="form-desc">
+            设 x1、x3 分别为向 S1、S3 采购的帐篷数量，y1、y3 分别表示是否启用该供应商（启用=1，不启用=0）。
           </p>
-          <p v-else class="solver-gap">
-            比最优解高 {{ money(current.total - solution.optimal.total, 0) }} 元，继续调整 x1 可进一步降低综合成本。
-          </p>
-        </div>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('solve')" @click="run('solve', checkSolve)">
-            执行求解
-          </button>
-        </div>
+          <template v-if="flow.isDone('model')">
+            <p class="sys-toast">分单组合优化模型已建立。</p>
+            <p class="block-formula">{{ splitModel.objective }}</p>
+            <ul class="constraint-list">
+              <li v-for="(item, index) in splitModel.constraints" :key="index">{{ item }}</li>
+            </ul>
+            <p class="calc-note">{{ SOLVER_NOTE }}</p>
+          </template>
+        </template>
 
-        <template #result>
-          <p class="sys-toast">
-            规划求解结果：x1={{ solution.optimal.x1 }}、x3={{ solution.optimal.x3 }}、y1={{ solution.optimal.y1 }}、y3={{ solution.optimal.y3 }}，
-            综合成本 {{ money(solution.optimal.total, 0) }} 元。
-          </p>
-          <div class="score-table-wrap">
+        <!-- 应急分单 → 模型求解 -->
+        <template v-else-if="leaf === 'solve'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('solve')" @click="run('solve', checkSolve)">
+              执行求解
+            </button>
+          </div>
+          <div class="solver">
+            <label class="solver-label">向 S1 采购 x1 = <strong>{{ x1 }}</strong> 顶</label>
+            <input
+              v-model.number="x1"
+              type="range"
+              min="0"
+              :max="splitModel.required"
+              step="10"
+              class="solver-range"
+              :disabled="flow.isDone('solve')"
+            />
+            <p class="solver-derived">
+              向 S3 采购 x3 = {{ splitModel.required - x1 }} 顶 ｜ y1 = {{ current.y1 }}，y3 = {{ current.y3 }}
+            </p>
+
+            <div class="solver-breakdown">
+              <div><span>货物成本</span><strong>{{ money(current.goods, 0) }} 元</strong></div>
+              <div><span>订单固定成本</span><strong>{{ money(current.fixed, 0) }} 元</strong></div>
+              <div class="solver-total"><span>目标函数 Z</span><strong>{{ money(current.total, 0) }} 元</strong></div>
+            </div>
+
+            <p v-if="current.violations.length" class="solver-violation">约束不满足：{{ current.violations.join('；') }}</p>
+            <p v-else-if="isOptimal" class="solver-optimal">
+              当前组合即为最优解 x1={{ solution.optimal.x1 }}、x3={{ solution.optimal.x3 }}。
+            </p>
+            <p v-else class="solver-gap">
+              比最优解高 {{ money(current.total - solution.optimal.total, 0) }} 元，继续调整 x1 可进一步降低综合成本。
+            </p>
+          </div>
+          <template v-if="flow.isDone('solve')">
+            <p class="sys-toast">
+              规划求解结果：x1={{ solution.optimal.x1 }}、x3={{ solution.optimal.x3 }}、y1={{ solution.optimal.y1 }}、y3={{ solution.optimal.y3 }}，
+              综合成本 {{ money(solution.optimal.total, 0) }} 元。
+            </p>
+            <div class="score-table-wrap">
+              <table class="calc-table compact">
+                <thead>
+                  <tr>
+                    <th>方案</th><th>x1</th><th>x3</th><th>货物成本</th><th>固定成本</th><th class="col-total">综合成本</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="c in solution.candidates" :key="c.label" :class="{ winner: c.total === solution.optimal.total }">
+                    <th scope="row">{{ c.label }}</th>
+                    <td>{{ c.x1 }}</td>
+                    <td>{{ c.x3 }}</td>
+                    <td>{{ money(c.goods, 0) }}</td>
+                    <td>{{ money(c.fixed, 0) }}</td>
+                    <td class="col-total">{{ money(c.total, 0) }} 元</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ul class="sys-lines">
+              <li>相较全部选择 S3，节约成本 = {{ money(solution.worst.total, 0) }} － {{ money(solution.optimal.total, 0) }} = {{ money(solution.saving, 0) }} 元</li>
+              <li class="info">S1 虽比 S3 晚 2 小时到达，但 8 小时仍满足 {{ splitModel.deadlineHours }} 小时保障时限</li>
+            </ul>
+          </template>
+        </template>
+
+        <!-- 应急分单 → 分单方案 -->
+        <template v-else-if="leaf === 'plan'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('plan')" @click="run('plan')">生成处置方案</button>
+          </div>
+          <template v-if="flow.isDone('plan')">
+            <p class="sys-toast">总体处置方案已生成，12 小时内可到位 {{ num(arrival12h, 0) }} 顶。</p>
             <table class="calc-table compact">
               <thead>
-                <tr>
-                  <th>方案</th><th>x1</th><th>x3</th><th>货物成本</th><th>固定成本</th><th class="col-total">综合成本</th>
-                </tr>
+                <tr><th>供应来源</th><th>数量</th><th>到位时间</th></tr>
               </thead>
               <tbody>
-                <tr v-for="c in solution.candidates" :key="c.label" :class="{ winner: c.total === solution.optimal.total }">
-                  <th scope="row">{{ c.label }}</th>
-                  <td>{{ c.x1 }}</td>
-                  <td>{{ c.x3 }}</td>
-                  <td>{{ money(c.goods, 0) }}</td>
-                  <td>{{ money(c.fixed, 0) }}</td>
-                  <td class="col-total">{{ money(c.total, 0) }} 元</td>
+                <tr>
+                  <th scope="row">S2 保留</th>
+                  <td>{{ num(retained, 0) }} 顶</td>
+                  <td>{{ num(hours12, 0) }} 顶 12 小时内到达、{{ num(hours24, 0) }} 顶 24 小时内到达</td>
+                </tr>
+                <tr>
+                  <th scope="row">S1 紧急分单</th>
+                  <td>{{ num(solution.optimal.x1, 0) }} 顶</td>
+                  <td>{{ quotes[0].arrivalHours }} 小时内到达</td>
+                </tr>
+                <tr>
+                  <th scope="row">{{ transferRows.map((row) => row.from).join('、') }} 临时调拨</th>
+                  <td>{{ num(transferTotal, 0) }} 顶</td>
+                  <td>2 小时内到达</td>
                 </tr>
               </tbody>
             </table>
+            <p class="block-formula">
+              12 小时内可到位数量 = {{ num(hours12, 0) }} + {{ num(solution.optimal.x1, 0) }} + {{ num(transferTotal, 0) }} = {{ num(arrival12h, 0) }} 顶
+            </p>
+            <p class="block-formula">
+              第一批重点保障完成率 = {{ num(arrival12h, 0) }} / {{ num(original, 0) }} × 100% = {{ percent(completionRate, 0) }}
+            </p>
+            <ul class="sys-lines">
+              <li class="info">S2 后续 {{ num(hours24, 0) }} 顶到达后，补回三个调出网格</li>
+            </ul>
+          </template>
+        </template>
+
+        <!-- 应急分单 → 处置决策 -->
+        <template v-else-if="leaf === 'decision'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('decision')" @click="run('decision', checkDecision)">
+              批准方案
+            </button>
           </div>
-          <ul class="sys-lines">
-            <li>相较全部选择 S3，节约成本 = {{ money(solution.worst.total, 0) }} － {{ money(solution.optimal.total, 0) }} = {{ money(solution.saving, 0) }} 元</li>
-            <li class="info">S1 虽比 S3 晚 2 小时到达，但 8 小时仍满足 {{ splitModel.deadlineHours }} 小时保障时限</li>
-          </ul>
+          <div class="checkbox-group">
+            <label v-for="path in DECISION_PATHS" :key="path.id" class="checkbox-item">
+              <input v-model="decision.path" type="radio" :value="path.id" :disabled="flow.isDone('decision')" />
+              {{ path.label }}（{{ path.note }}）
+            </label>
+          </div>
+          <template v-if="flow.isDone('decision')">
+            <p class="sys-toast">
+              决定采用组合方案：S2 保留 {{ num(retained, 0) }} 顶 + S1 分单 {{ num(solution.optimal.x1, 0) }} 顶 +
+              网格调拨 {{ num(transferTotal, 0) }} 顶 + 合同变更 + 预备费控制。
+            </p>
+            <ul class="sys-lines">
+              <li>批准 {{ changeOrder.contractCode }} 合同变更方案</li>
+              <li>批准 {{ emergency.code }} 紧急分单采购</li>
+              <li>批准临时调拨 {{ num(transferTotal, 0) }} 顶</li>
+              <li>批准使用预备费 {{ money(impact.contingencyUsed, 0) }} 元</li>
+              <li class="info">授权采购成本保障岗按审批结果办理合同变更和紧急采购合同签订</li>
+            </ul>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        title="形成总体处置方案"
-        hint="应急预算绩效岗"
-        :status="flow.status('plan')"
-        done-label="处置方案已生成"
-      >
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('plan')" @click="run('plan')">生成处置方案</button>
-        </div>
+        <!-- 合同管理 → 变更管理 → 变更单 -->
+        <template v-else-if="leaf === 'change'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('change')" @click="run('change')">提交变更审批</button>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">变更前帐篷数量</span>
+              <input class="form-control locked" :value="`${changeOrder.tentBefore} 顶`" readonly />
+            </label>
+            <label class="form-item">
+              <span class="form-label">变更后帐篷数量</span>
+              <input class="form-control locked" :value="`${changeOrder.tentAfter} 顶`" readonly />
+            </label>
+            <label class="form-item">
+              <span class="form-label">合同单价</span>
+              <input class="form-control locked" :value="`${money(changeOrder.unitPrice, 0)} 元/顶`" readonly />
+            </label>
+          </div>
+          <template v-if="flow.isDone('change')">
+            <p class="sys-toast">
+              {{ changeOrder.contractCode }} 帐篷数量由 {{ changeOrder.tentBefore }} 顶调整为 {{ changeOrder.tentAfter }} 顶，
+              减少 {{ changeOrder.reducedQuantity }} 顶。
+            </p>
+            <p class="block-formula">
+              合同减少金额 = {{ changeOrder.reducedQuantity }} × {{ money(changeOrder.unitPrice, 0) }} = {{ money(impact.reduction, 0) }} 元
+            </p>
+            <p class="block-formula">
+              变更后金额 = {{ money(initialContractAmount, 0) }} － {{ money(impact.reduction, 0) }} = {{ money(impact.contractAfter, 0) }} 元
+            </p>
+            <ul class="sys-lines">
+              <li class="info">其他合同物资（{{ otherLineText }}）的数量、单价、质量标准和付款条件不变</li>
+              <li class="info">食品、饮用水直采路径不受本次帐篷合同变更影响</li>
+            </ul>
+          </template>
+        </template>
 
-        <template #result>
-          <p class="sys-toast">总体处置方案已生成，12 小时内可到位 {{ num(arrival12h, 0) }} 顶。</p>
+        <!-- 合同管理 → 紧急合同 → 紧急合同编制 -->
+        <template v-else-if="leaf === 'emergency'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('emergency')" @click="run('emergency')">提交审批</button>
+          </div>
           <table class="calc-table compact">
             <thead>
-              <tr><th>供应来源</th><th>数量</th><th>到位时间</th></tr>
+              <tr><th>合同要素</th><th class="col-total">内容</th></tr>
             </thead>
             <tbody>
-              <tr>
-                <th scope="row">S2 保留</th>
-                <td>{{ num(retained, 0) }} 顶</td>
-                <td>{{ num(hours12, 0) }} 顶 12 小时内到达、{{ num(hours24, 0) }} 顶 24 小时内到达</td>
-              </tr>
-              <tr>
-                <th scope="row">S1 紧急分单</th>
-                <td>{{ num(solution.optimal.x1, 0) }} 顶</td>
-                <td>{{ quotes[0].arrivalHours }} 小时内到达</td>
-              </tr>
-              <tr>
-                <th scope="row">{{ transferRows.map((row) => row.from).join('、') }} 临时调拨</th>
-                <td>{{ num(transferTotal, 0) }} 顶</td>
-                <td>2 小时内到达</td>
-              </tr>
+              <tr><th scope="row">供应商</th><td class="col-total">{{ emergency.supplierId }}</td></tr>
+              <tr><th scope="row">采购帐篷</th><td class="col-total">{{ num(emergency.quantity, 0) }} 顶</td></tr>
+              <tr><th scope="row">货物金额</th><td class="col-total">{{ money(emergency.goodsAmount, 0) }} 元</td></tr>
+              <tr><th scope="row">车辆应急增加成本</th><td class="col-total">{{ money(emergency.vehicleCost, 0) }} 元</td></tr>
+              <tr><th scope="row">装卸人工增加成本</th><td class="col-total">{{ money(emergency.laborCost, 0) }} 元</td></tr>
             </tbody>
+            <tfoot>
+              <tr><th scope="row">合同总额</th><td class="col-total">{{ money(emergency.total, 0) }} 元</td></tr>
+            </tfoot>
           </table>
-          <p class="block-formula">
-            12 小时内可到位数量 = {{ num(hours12, 0) }} + {{ num(solution.optimal.x1, 0) }} + {{ num(transferTotal, 0) }} = {{ num(arrival12h, 0) }} 顶
-          </p>
-          <p class="block-formula">
-            第一批重点保障完成率 = {{ num(arrival12h, 0) }} / {{ num(original, 0) }} × 100% = {{ percent(completionRate, 0) }}
-          </p>
-          <ul class="sys-lines">
-            <li class="info">S2 后续 {{ num(hours24, 0) }} 顶到达后，补回三个调出网格</li>
-          </ul>
+          <template v-if="flow.isDone('emergency')">
+            <p class="sys-toast">
+              {{ emergency.code }} 紧急分单合同已提交审批，与 {{ emergency.supplierId }} 采购帐篷 {{ num(emergency.quantity, 0) }} 顶，
+              合同总额 {{ money(emergency.total, 0) }} 元。
+            </p>
+            <p class="block-formula">
+              合同总额 = {{ money(emergency.goodsAmount, 0) }} + {{ money(emergency.vehicleCost, 0) }} + {{ money(emergency.laborCost, 0) }}
+              = {{ money(emergency.total, 0) }} 元
+            </p>
+            <ul class="sys-lines">
+              <li>交付时间 {{ emergency.arrivalHours }} 小时</li>
+              <li>验收合格后 7 日内付款</li>
+              <li class="warn">未验收部分暂停付款</li>
+            </ul>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        title="审核三种处置路径并批准"
-        hint="财务主管统筹岗"
-        :status="flow.status('decision')"
-        done-label="组合方案已批准"
-      >
-        <div class="checkbox-group">
-          <label v-for="path in DECISION_PATHS" :key="path.id" class="checkbox-item">
-            <input v-model="decision.path" type="radio" :value="path.id" :disabled="flow.isDone('decision')" />
-            {{ path.label }}（{{ path.note }}）
-          </label>
-        </div>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('decision')" @click="run('decision', checkDecision)">
-            批准方案
-          </button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">
-            决定采用组合方案：S2 保留 {{ num(retained, 0) }} 顶 + S1 分单 {{ num(solution.optimal.x1, 0) }} 顶 +
-            网格调拨 {{ num(transferTotal, 0) }} 顶 + 合同变更 + 预备费控制。
-          </p>
-          <ul class="sys-lines">
-            <li>批准 {{ changeOrder.contractCode }} 合同变更方案</li>
-            <li>批准 {{ emergency.code }} 紧急分单采购</li>
-            <li>批准临时调拨 {{ num(transferTotal, 0) }} 顶</li>
-            <li>批准使用预备费 {{ money(impact.contingencyUsed, 0) }} 元</li>
-            <li class="info">授权采购成本保障岗按审批结果办理合同变更和紧急采购合同签订</li>
-          </ul>
+        <!-- 预算管理 → 成本重估 -->
+        <template v-else-if="leaf === 'recost'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('recost')" @click="run('recost')">重新测算</button>
+          </div>
+          <template v-if="flow.isDone('recost')">
+            <p class="block-formula">
+              原帐篷采购成本 = {{ changeOrder.tentBefore }} × {{ money(changeOrder.unitPrice, 0) }} = {{ money(tentCostBefore, 0) }} 元
+            </p>
+            <p class="block-formula">
+              变更后帐篷及紧急保障成本 = {{ changeOrder.tentAfter }} × {{ money(changeOrder.unitPrice, 0) }} +
+              {{ emergency.quantity }} × {{ money(quotes[0].unitPrice, 0) }} + {{ money(emergency.vehicleCost, 0) }} +
+              {{ money(emergency.laborCost, 0) }} = {{ money(tentCostAfter, 0) }} 元
+            </p>
+            <table class="calc-table compact">
+              <thead>
+                <tr><th>新增支出构成</th><th>计算</th><th class="col-total">金额</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">采购价差</th>
+                  <td>{{ emergency.quantity }} × ({{ money(quotes[0].unitPrice, 0) }} － {{ money(changeOrder.unitPrice, 0) }})</td>
+                  <td class="col-total">{{ money(impact.priceGap, 0) }} 元</td>
+                </tr>
+                <tr>
+                  <th scope="row">运费和人工增加成本</th>
+                  <td>{{ money(emergency.vehicleCost, 0) }} + {{ money(emergency.laborCost, 0) }}</td>
+                  <td class="col-total">{{ money(impact.logisticsGap, 0) }} 元</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">突发事件新增支出</th>
+                  <td>{{ money(tentCostAfter, 0) }} － {{ money(tentCostBefore, 0) }}</td>
+                  <td class="col-total">{{ money(impact.increment, 0) }} 元</td>
+                </tr>
+              </tfoot>
+            </table>
+            <div class="gauge-track">
+              <span class="gauge-fill warn" :style="{ width: percent(impact.contingencyRate, 2) }"></span>
+            </div>
+            <p class="gauge-caption">
+              阶段性预备费使用率 = {{ money(impact.contingencyUsed, 0) }} / {{ money(impact.contingencyTotal, 0) }} × 100%
+              = {{ percent(impact.contingencyRate, 2) }}，当前预备费阶段性余额 {{ money(impact.contingencyLeft, 0) }} 元。
+            </p>
+            <div class="stat-grid">
+              <div class="stat-cell">
+                <span class="stat-label">变更后 {{ changeOrder.tentBefore }} 顶综合平均成本</span>
+                <strong class="stat-value">{{ money(impact.averageUnitCost, 2) }} 元/顶</strong>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">剔除应急运输和人工后</span>
+                <strong class="stat-value">{{ money(impact.goodsUnitCost, 2) }} 元/顶</strong>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">与基准价 {{ BASELINE_PRICE }} 元偏差</span>
+                <strong class="stat-value">{{ signedPercent(deviation, 2) }}</strong>
+              </div>
+            </div>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        :title="`拟定 ${changeOrder.contractCode} 合同变更方案`"
-        hint="采购成本保障岗"
-        :status="flow.status('change')"
-        done-label="变更方案已提交审批"
-      >
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">变更前帐篷数量</span>
-            <input class="form-control locked" :value="`${changeOrder.tentBefore} 顶`" readonly />
-          </label>
-          <label class="form-item">
-            <span class="form-label">变更后帐篷数量</span>
-            <input class="form-control locked" :value="`${changeOrder.tentAfter} 顶`" readonly />
-          </label>
-          <label class="form-item">
-            <span class="form-label">合同单价</span>
-            <input class="form-control locked" :value="`${money(changeOrder.unitPrice, 0)} 元/顶`" readonly />
-          </label>
-        </div>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('change')" @click="run('change')">提交变更审批</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">
-            {{ changeOrder.contractCode }} 帐篷数量由 {{ changeOrder.tentBefore }} 顶调整为 {{ changeOrder.tentAfter }} 顶，
-            减少 {{ changeOrder.reducedQuantity }} 顶。
-          </p>
-          <p class="block-formula">
-            合同减少金额 = {{ changeOrder.reducedQuantity }} × {{ money(changeOrder.unitPrice, 0) }} = {{ money(impact.reduction, 0) }} 元
-          </p>
-          <p class="block-formula">
-            变更后金额 = {{ money(initialContractAmount, 0) }} － {{ money(impact.reduction, 0) }} = {{ money(impact.contractAfter, 0) }} 元
-          </p>
-          <ul class="sys-lines">
-            <li class="info">其他合同物资（{{ otherLineText }}）的数量、单价、质量标准和付款条件不变</li>
-            <li class="info">食品、饮用水直采路径不受本次帐篷合同变更影响</li>
-          </ul>
+        <!-- 预算管理 → 预算重占用 -->
+        <template v-else-if="leaf === 'reoccupy'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('reoccupy')" @click="run('reoccupy')">重新占用</button>
+          </div>
+          <template v-if="flow.isDone('reoccupy')">
+            <p class="block-formula">
+              两份合同合计 = {{ money(impact.contractAfter, 0) }} + {{ money(impact.emergency, 0) }} = {{ money(impact.contractsTotal, 0) }} 元
+            </p>
+            <p class="block-formula">
+              采购执行总额 = {{ money(impact.contractsTotal, 0) }} + {{ money(impact.directTotal, 2) }} = {{ money(impact.executionTotal, 2) }} 元
+            </p>
+            <p class="block-formula">
+              较初始方案增加 = {{ money(impact.executionTotal, 2) }} － {{ money(impact.initialTotal, 2) }} = {{ money(impact.increment, 0) }} 元
+            </p>
+            <ul class="sys-lines">
+              <li class="warn">新增 {{ money(impact.increment, 0) }} 元全部由帐篷紧急分单产生，从 C 方案预备费项目列支</li>
+              <li class="info">食品、饮用水直采金额不因本次合同变更增加</li>
+              <li class="info">资金来源为政府财政拨款保障资金，不使用限定性食品捐赠和特殊人群保障资金</li>
+            </ul>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        :title="`签订 ${emergency.code} 紧急分单合同`"
-        hint="采购成本保障岗"
-        :status="flow.status('emergency')"
-        done-label="紧急分单合同已提交审批"
-      >
-        <table class="calc-table compact">
-          <thead>
-            <tr><th>合同要素</th><th class="col-total">内容</th></tr>
-          </thead>
-          <tbody>
-            <tr><th scope="row">供应商</th><td class="col-total">{{ emergency.supplierId }}</td></tr>
-            <tr><th scope="row">采购帐篷</th><td class="col-total">{{ num(emergency.quantity, 0) }} 顶</td></tr>
-            <tr><th scope="row">货物金额</th><td class="col-total">{{ money(emergency.goodsAmount, 0) }} 元</td></tr>
-            <tr><th scope="row">车辆应急增加成本</th><td class="col-total">{{ money(emergency.vehicleCost, 0) }} 元</td></tr>
-            <tr><th scope="row">装卸人工增加成本</th><td class="col-total">{{ money(emergency.laborCost, 0) }} 元</td></tr>
-          </tbody>
-          <tfoot>
-            <tr><th scope="row">合同总额</th><td class="col-total">{{ money(emergency.total, 0) }} 元</td></tr>
-          </tfoot>
-        </table>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('emergency')" @click="run('emergency')">提交审批</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">
-            {{ emergency.code }} 紧急分单合同已提交审批，与 {{ emergency.supplierId }} 采购帐篷 {{ num(emergency.quantity, 0) }} 顶，
-            合同总额 {{ money(emergency.total, 0) }} 元。
-          </p>
-          <p class="block-formula">
-            合同总额 = {{ money(emergency.goodsAmount, 0) }} + {{ money(emergency.vehicleCost, 0) }} + {{ money(emergency.laborCost, 0) }}
-            = {{ money(emergency.total, 0) }} 元
-          </p>
-          <ul class="sys-lines">
-            <li>交付时间 {{ emergency.arrivalHours }} 小时</li>
-            <li>验收合格后 7 日内付款</li>
-            <li class="warn">未验收部分暂停付款</li>
-          </ul>
+        <!-- 资金核算 → 付款规则调整 -->
+        <template v-else-if="leaf === 'payRules'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('payRules')" @click="run('payRules')">保存控制规则</button>
+          </div>
+          <template v-if="flow.isDone('payRules')">
+            <p class="sys-toast">变更后付款和四流控制规则已保存并生效。</p>
+            <table class="calc-table compact">
+              <thead>
+                <tr><th>控制对象</th><th>核验要求</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">{{ changeOrder.contractCode }}</th>
+                  <td>按变更后合同验收付款</td>
+                </tr>
+                <tr>
+                  <th scope="row">{{ emergency.code }}</th>
+                  <td>
+                    分别核验 {{ num(emergency.quantity, 0) }} 顶帐篷、{{ money(emergency.goodsAmount, 0) }} 元货款、
+                    {{ money(emergency.vehicleCost, 0) }} 元车辆应急增加成本、{{ money(emergency.laborCost, 0) }} 元人工增加成本
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">食品、饮用水直采</th>
+                  <td>按框架协议/采购审批单、零售或订单凭证、到货验收、发票/小票及付款记录分项核验</td>
+                </tr>
+                <tr>
+                  <th scope="row">网格调拨 {{ num(transferTotal, 0) }} 顶</th>
+                  <td>不形成对外付款，但须形成出库单、调拨单、运输记录和接收确认单</td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
         </template>
-      </OperationBlock>
 
-      <OperationBlock
-        title="重新测算成本与预备费"
-        hint="应急预算绩效岗"
-        :status="flow.status('recost')"
-        done-label="成本与预备费已复算"
-      >
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('recost')" @click="run('recost')">重新测算</button>
-        </div>
-
-        <template #result>
-          <p class="block-formula">
-            原帐篷采购成本 = {{ changeOrder.tentBefore }} × {{ money(changeOrder.unitPrice, 0) }} = {{ money(tentCostBefore, 0) }} 元
-          </p>
-          <p class="block-formula">
-            变更后帐篷及紧急保障成本 = {{ changeOrder.tentAfter }} × {{ money(changeOrder.unitPrice, 0) }} +
-            {{ emergency.quantity }} × {{ money(quotes[0].unitPrice, 0) }} + {{ money(emergency.vehicleCost, 0) }} +
-            {{ money(emergency.laborCost, 0) }} = {{ money(tentCostAfter, 0) }} 元
-          </p>
+        <!-- 采购执行 → 调度下达 -->
+        <template v-else-if="leaf === 'dispatch'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('dispatch')" @click="run('dispatch', checkDispatch)">
+              执行调拨
+            </button>
+          </div>
           <table class="calc-table compact">
             <thead>
-              <tr><th>新增支出构成</th><th>计算</th><th class="col-total">金额</th></tr>
+              <tr><th>调出网格</th><th>调入网格</th><th class="col-total">数量</th></tr>
             </thead>
             <tbody>
-              <tr>
-                <th scope="row">采购价差</th>
-                <td>{{ emergency.quantity }} × ({{ money(quotes[0].unitPrice, 0) }} － {{ money(changeOrder.unitPrice, 0) }})</td>
-                <td class="col-total">{{ money(impact.priceGap, 0) }} 元</td>
-              </tr>
-              <tr>
-                <th scope="row">运费和人工增加成本</th>
-                <td>{{ money(emergency.vehicleCost, 0) }} + {{ money(emergency.laborCost, 0) }}</td>
-                <td class="col-total">{{ money(impact.logisticsGap, 0) }} 元</td>
+              <tr v-for="row in transferRows" :key="`${row.from}-${row.to}`">
+                <th scope="row">{{ row.from }}</th>
+                <td>{{ row.to }}</td>
+                <td class="col-total">{{ num(row.quantity, 0) }} 顶</td>
               </tr>
             </tbody>
             <tfoot>
-              <tr>
-                <th scope="row">突发事件新增支出</th>
-                <td>{{ money(tentCostAfter, 0) }} － {{ money(tentCostBefore, 0) }}</td>
-                <td class="col-total">{{ money(impact.increment, 0) }} 元</td>
-              </tr>
+              <tr><th scope="row">合计</th><td>—</td><td class="col-total">{{ num(transferTotal, 0) }} 顶</td></tr>
             </tfoot>
           </table>
-          <div class="gauge-track">
-            <span class="gauge-fill warn" :style="{ width: percent(impact.contingencyRate, 2) }"></span>
-          </div>
-          <p class="gauge-caption">
-            阶段性预备费使用率 = {{ money(impact.contingencyUsed, 0) }} / {{ money(impact.contingencyTotal, 0) }} × 100%
-            = {{ percent(impact.contingencyRate, 2) }}，当前预备费阶段性余额 {{ money(impact.contingencyLeft, 0) }} 元。
-          </p>
-          <div class="stat-grid">
-            <div class="stat-cell">
-              <span class="stat-label">变更后 {{ changeOrder.tentBefore }} 顶综合平均成本</span>
-              <strong class="stat-value">{{ money(impact.averageUnitCost, 2) }} 元/顶</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">剔除应急运输和人工后</span>
-              <strong class="stat-value">{{ money(impact.goodsUnitCost, 2) }} 元/顶</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">与基准价 {{ BASELINE_PRICE }} 元偏差</span>
-              <strong class="stat-value">{{ signedPercent(deviation, 2) }}</strong>
-            </div>
-          </div>
+          <template v-if="flow.isDone('dispatch')">
+            <p class="sys-toast">
+              网格调拨执行完成，合计 {{ num(transferTotal, 0) }} 顶，可暂时保障 {{ num(transferPeople, 0) }} 人。
+            </p>
+            <ul class="sys-lines">
+              <li v-for="row in transferRows" :key="`${row.from}-${row.to}`">
+                {{ row.from }} 调出 {{ num(row.quantity, 0) }} 顶至 {{ row.to }}
+              </li>
+              <li class="info">系统记录批次、调出时间、到达时间、经办人、接收人和 24 小时补回计划</li>
+            </ul>
+          </template>
         </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="重新进行预算占用和资金匹配"
-        hint="资金核算风控岗"
-        :status="flow.status('reoccupy')"
-        done-label="预算占用已重算"
-      >
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('reoccupy')" @click="run('reoccupy')">重新占用</button>
-        </div>
-
-        <template #result>
-          <p class="block-formula">
-            两份合同合计 = {{ money(impact.contractAfter, 0) }} + {{ money(impact.emergency, 0) }} = {{ money(impact.contractsTotal, 0) }} 元
-          </p>
-          <p class="block-formula">
-            采购执行总额 = {{ money(impact.contractsTotal, 0) }} + {{ money(impact.directTotal, 2) }} = {{ money(impact.executionTotal, 2) }} 元
-          </p>
-          <p class="block-formula">
-            较初始方案增加 = {{ money(impact.executionTotal, 2) }} － {{ money(impact.initialTotal, 2) }} = {{ money(impact.increment, 0) }} 元
-          </p>
-          <ul class="sys-lines">
-            <li class="warn">新增 {{ money(impact.increment, 0) }} 元全部由帐篷紧急分单产生，从 C 方案预备费项目列支</li>
-            <li class="info">食品、饮用水直采金额不因本次合同变更增加</li>
-            <li class="info">资金来源为政府财政拨款保障资金，不使用限定性食品捐赠和特殊人群保障资金</li>
-          </ul>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="建立变更后付款与四流控制规则"
-        hint="资金核算风控岗"
-        :status="flow.status('payRules')"
-        done-label="控制规则已生效"
-      >
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('payRules')" @click="run('payRules')">保存控制规则</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">变更后付款和四流控制规则已保存并生效。</p>
-          <table class="calc-table compact">
-            <thead>
-              <tr><th>控制对象</th><th>核验要求</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">{{ changeOrder.contractCode }}</th>
-                <td>按变更后合同验收付款</td>
-              </tr>
-              <tr>
-                <th scope="row">{{ emergency.code }}</th>
-                <td>
-                  分别核验 {{ num(emergency.quantity, 0) }} 顶帐篷、{{ money(emergency.goodsAmount, 0) }} 元货款、
-                  {{ money(emergency.vehicleCost, 0) }} 元车辆应急增加成本、{{ money(emergency.laborCost, 0) }} 元人工增加成本
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">食品、饮用水直采</th>
-                <td>按框架协议/采购审批单、零售或订单凭证、到货验收、发票/小票及付款记录分项核验</td>
-              </tr>
-              <tr>
-                <th scope="row">网格调拨 {{ num(transferTotal, 0) }} 顶</th>
-                <td>不形成对外付款，但须形成出库单、调拨单、运输记录和接收确认单</td>
-              </tr>
-            </tbody>
-          </table>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="执行网格调拨"
-        hint="采购成本保障岗切换为网格物资调度专员"
-        :status="flow.status('dispatch')"
-        done-label="调拨已执行"
-      >
-        <table class="calc-table compact">
-          <thead>
-            <tr><th>调出网格</th><th>调入网格</th><th class="col-total">数量</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in transferRows" :key="`${row.from}-${row.to}`">
-              <th scope="row">{{ row.from }}</th>
-              <td>{{ row.to }}</td>
-              <td class="col-total">{{ num(row.quantity, 0) }} 顶</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr><th scope="row">合计</th><td>—</td><td class="col-total">{{ num(transferTotal, 0) }} 顶</td></tr>
-          </tfoot>
-        </table>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('dispatch')" @click="run('dispatch')">执行调拨</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">
-            网格调拨执行完成，合计 {{ num(transferTotal, 0) }} 顶，可暂时保障 {{ num(transferPeople, 0) }} 人。
-          </p>
-          <ul class="sys-lines">
-            <li v-for="row in transferRows" :key="`${row.from}-${row.to}`">
-              {{ row.from }} 调出 {{ num(row.quantity, 0) }} 顶至 {{ row.to }}
-            </li>
-            <li class="info">系统记录批次、调出时间、到达时间、经办人、接收人和 24 小时补回计划</li>
-          </ul>
-        </template>
-      </OperationBlock>
-    </div>
+      </template>
+    </SystemShell>
   </PanelShell>
 </template>

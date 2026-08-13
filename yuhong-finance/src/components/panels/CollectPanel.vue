@@ -1,14 +1,84 @@
 <script setup>
-// 洪涝应急救援数据采集系统操作台。学生依次执行采集配置动作，每完成一项即显示平台回执并解锁下一项。
+// 数据中台 · 洪涝应急救援数据采集系统。
+// 工作簿里的「数据中心 → 数据采集管理 → 新建采集任务」是要逐级点开的菜单，不是标题。
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
-import OperationBlock from './OperationBlock.vue'
+import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import { disasterGrids } from '../../data/costDriver.js'
 import { num, percent } from '../../domain/format.js'
 
-const OPS = ['task', 'sources', 'fields', 'script', 'extract', 'security', 'iqr', 'quality', 'runtime', 'export']
-const flow = useTaskFlow('s1-t2', OPS)
+const PAGES = [
+  'new-task',
+  'add-source',
+  'add-field',
+  'python-node',
+  'extract-rule',
+  'data-grade',
+  'iqr-rule',
+  'quality-rule',
+  'run-task',
+  'data-export',
+]
+const flow = useTaskFlow('s1-t2', PAGES)
+
+const menu = [
+  {
+    id: 'm-center',
+    label: '数据中心',
+    children: [
+      { id: 'm-center-collect', label: '数据采集管理', children: [{ id: 'new-task', label: '新建采集任务' }] },
+    ],
+  },
+  {
+    id: 'm-source',
+    label: '数据源管理',
+    children: [{ id: 'add-source', label: '添加数据源' }],
+  },
+  {
+    id: 'm-task',
+    label: '数据采集任务',
+    children: [
+      { id: 'm-task-field', label: '字段映射', children: [{ id: 'add-field', label: '新增字段' }] },
+      { id: 'run-task', label: '运行采集任务' },
+    ],
+  },
+  {
+    id: 'm-flow',
+    label: '任务流程',
+    children: [
+      { id: 'm-flow-node', label: '添加节点', children: [{ id: 'python-node', label: 'Python脚本' }] },
+    ],
+  },
+  {
+    id: 'm-process',
+    label: '数据处理',
+    children: [
+      { id: 'm-process-extract', label: '数据提取', children: [{ id: 'extract-rule', label: '新建提取规则' }] },
+    ],
+  },
+  {
+    id: 'm-security',
+    label: '数据安全中心',
+    children: [{ id: 'data-grade', label: '数据分级分类' }],
+  },
+  {
+    id: 'm-quality',
+    label: '数据质量',
+    children: [
+      { id: 'm-quality-monitor', label: '异常监测', children: [{ id: 'iqr-rule', label: '新建监测规则' }] },
+      { id: 'quality-rule', label: '质量规则配置' },
+    ],
+  },
+  {
+    id: 'm-manage',
+    label: '数据管理',
+    children: [{ id: 'data-export', label: '数据导出' }],
+  },
+]
+
+const activeId = ref('')
+const error = ref('')
 
 const taskForm = reactive({
   name: '洪涝应急救援数据采集',
@@ -141,18 +211,25 @@ const qualityRules = [
 
 const exportItems = ['保留数据来源', '保留采集时间', '保留异常标记', '保留数据版本号']
 
-const error = ref('')
-const connected = reactive(Object.fromEntries(dataSources.map((s) => [s.code, flow.isDone('sources')])))
+// 运行采集任务前必须就位的配置页，运行报告里的每一项状态都来自这些功能页。
+const runtimeRequired = [
+  { id: 'add-source', label: '数据源接入' },
+  { id: 'python-node', label: '采集脚本' },
+  { id: 'data-grade', label: '数据分级分类' },
+  { id: 'iqr-rule', label: '异常监测' },
+]
+
+const connected = reactive(Object.fromEntries(dataSources.map((s) => [s.code, flow.isDone('add-source')])))
 const dims = reactive(Object.fromEntries(extractDimensions.map((d) => [d.name, true])))
-const guards = reactive(Object.fromEntries(guardItems.map((n) => [n, flow.isDone('security')])))
-const rules = reactive(Object.fromEntries(qualityRules.map((r) => [r.id, flow.isDone('quality')])))
-const exportKeeps = reactive(Object.fromEntries(exportItems.map((n) => [n, flow.isDone('export')])))
+const guards = reactive(Object.fromEntries(guardItems.map((n) => [n, flow.isDone('data-grade')])))
+const rules = reactive(Object.fromEntries(qualityRules.map((r) => [r.id, flow.isDone('quality-rule')])))
+const exportKeeps = reactive(Object.fromEntries(exportItems.map((n) => [n, flow.isDone('data-export')])))
 
 const dataLevel = ref('敏感数据')
 const exportFormat = ref('Excel')
-const syntaxChecked = ref(flow.isDone('script'))
+const syntaxChecked = ref(flow.isDone('python-node'))
 const extracting = ref(false)
-const extractProgress = ref(flow.isDone('extract') ? 100 : 0)
+const extractProgress = ref(flow.isDone('extract-rule') ? 100 : 0)
 let extractTimer = null
 
 const connectedList = computed(() => dataSources.filter((s) => connected[s.code]))
@@ -160,7 +237,9 @@ const chosenDims = computed(() => extractDimensions.filter((d) => dims[d.name]))
 const enabledGuards = computed(() => guardItems.filter((n) => guards[n]))
 const enabledRules = computed(() => qualityRules.filter((r) => rules[r.id]))
 const chosenExports = computed(() => exportItems.filter((n) => exportKeeps[n]))
-const collectedGrids = computed(() => (flow.isDone('runtime') ? disasterGrids.map((g) => g.id) : []))
+const collectedGrids = computed(() => (flow.isDone('run-task') ? disasterGrids.map((g) => g.id) : []))
+const runtimeMissing = computed(() => runtimeRequired.filter((item) => !flow.isDone(item.id)))
+const pendingPages = computed(() => PAGES.filter((p) => p !== 'data-export' && !flow.isDone(p)))
 
 function quantile(sorted, q) {
   const pos = (sorted.length - 1) * q
@@ -188,7 +267,7 @@ const flagged = computed(() =>
 
 const outliers = computed(() => flagged.value.filter((item) => item.outlier))
 
-function run(id, check) {
+function save(id, check) {
   const message = check ? check() : ''
   if (message) {
     error.value = message
@@ -209,7 +288,7 @@ function checkSyntax() {
 }
 
 function startExtract() {
-  if (extracting.value || flow.isDone('extract')) return
+  if (extracting.value || flow.isDone('extract-rule')) return
   if (chosenDims.value.length < extractDimensions.length) {
     error.value = `还有 ${extractDimensions.length - chosenDims.value.length} 个提取维度未勾选`
     return
@@ -225,27 +304,30 @@ function startExtract() {
       clearInterval(extractTimer)
       extractTimer = null
       extracting.value = false
-      flow.complete('extract')
+      flow.complete('extract-rule')
     }
   }, 700)
-}
-
-function enableAllGuards() {
-  guardItems.forEach((n) => { guards[n] = true })
-}
-
-function enableAllRules() {
-  qualityRules.forEach((r) => { rules[r.id] = true })
-}
-
-function selectAllExports() {
-  exportItems.forEach((n) => { exportKeeps[n] = true })
 }
 
 function securityError() {
   if (dataLevel.value !== '敏感数据') return '灾情数据包含人员与救援信息，数据级别须设置为敏感数据'
   if (enabledGuards.value.length < guardItems.length) {
     return `还有 ${guardItems.length - enabledGuards.value.length} 项安全控制未勾选`
+  }
+  return ''
+}
+
+function runtimeError() {
+  if (!runtimeMissing.value.length) return ''
+  return `采集任务尚未就绪：${runtimeMissing.value.map((item) => item.label).join('、')} 未配置完成`
+}
+
+function exportError() {
+  if (pendingPages.value.length) {
+    return `还有 ${pendingPages.value.length} 个功能页未办理，采集系统尚未搭建完成，无法导出标准化数据源`
+  }
+  if (chosenExports.value.length < exportItems.length) {
+    return `还有 ${exportItems.length - chosenExports.value.length} 项导出留痕未勾选`
   }
   return ''
 }
@@ -277,495 +359,417 @@ onBeforeUnmount(stopExtract)
 </script>
 
 <template>
-  <PanelShell title="洪涝应急救援数据采集系统" source="数据采集中心">
-    <div class="op-progress">
-      <div class="op-progress-track">
-        <span class="op-progress-fill" :style="{ width: `${(flow.progress.value.done / flow.progress.value.total) * 100}%` }" />
-      </div>
-      <span class="op-progress-text">{{ flow.progress.value.done }} / {{ flow.progress.value.total }} 项操作完成</span>
-      <button type="button" class="text-button" @click="resetAll">重置</button>
-    </div>
+  <PanelShell title="洪涝应急救援数据采集系统" source="数据中台">
+    <SystemShell
+      system="数据中台"
+      operator="采购成本保障岗"
+      login-hint="登录后从左侧功能菜单逐级点开，进入数据采集中心对应功能页办理业务。"
+      :menu="menu"
+      :completed="flow.done.value"
+      :error="error"
+      v-model:active-id="activeId"
+      @reset="resetAll"
+    >
+      <template #default="{ leaf }">
+        <!-- 数据中心 → 数据采集管理 → 新建采集任务 -->
+        <template v-if="leaf === 'new-task'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('new-task')"
+              @click="save('new-task', () => (taskForm.name.trim() && taskForm.code.trim() ? '' : '任务名称与任务编号为必填项'))">创建任务</button>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label required">任务名称</span>
+              <input v-model="taskForm.name" class="form-control" :disabled="flow.isDone('new-task')" />
+            </label>
+            <label class="form-item">
+              <span class="form-label required">任务编号</span>
+              <input v-model="taskForm.code" class="form-control" :disabled="flow.isDone('new-task')" />
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">数据场景</span>
+              <select v-model="taskForm.scene" class="form-control" :disabled="flow.isDone('new-task')">
+                <option>洪涝应急救援</option><option>日常业务采集</option>
+              </select>
+            </label>
+            <label class="form-item">
+              <span class="form-label required">采集范围</span>
+              <select v-model="taskForm.scope" class="form-control" :disabled="flow.isDone('new-task')">
+                <option>甲1—甲9网格</option><option>单网格试点</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">采集方式</span>
+              <select v-model="taskForm.method" class="form-control" :disabled="flow.isDone('new-task')">
+                <option>API接口 + 平台数据 + 无人机数据</option><option>人工填报</option>
+              </select>
+            </label>
+            <label class="form-item">
+              <span class="form-label">更新方式</span>
+              <select v-model="taskForm.refresh" class="form-control" :disabled="flow.isDone('new-task')">
+                <option>实时更新</option><option>定时更新</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">任务状态</span>
+              <select v-model="taskForm.state" class="form-control" :disabled="flow.isDone('new-task')">
+                <option>启用</option><option>停用</option>
+              </select>
+            </label>
+            <div class="form-item" />
+          </div>
+          <template v-if="flow.isDone('new-task')">
+            <p class="sys-toast">采集任务「{{ taskForm.name }}」创建成功，任务编号 {{ taskForm.code }}。</p>
+            <dl class="block-fields">
+              <div class="field-row"><dt>数据场景</dt><dd>{{ taskForm.scene }}</dd></div>
+              <div class="field-row"><dt>采集范围</dt><dd>{{ taskForm.scope }}</dd></div>
+              <div class="field-row"><dt>采集方式</dt><dd>{{ taskForm.method }}</dd></div>
+              <div class="field-row"><dt>更新方式</dt><dd>{{ taskForm.refresh }}</dd></div>
+              <div class="field-row"><dt>任务状态</dt><dd>{{ taskForm.state }}</dd></div>
+            </dl>
+          </template>
+        </template>
 
-    <p v-if="error" class="sys-toast danger">{{ error }}</p>
+        <!-- 数据源管理 → 添加数据源 -->
+        <template v-else-if="leaf === 'add-source'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('add-source')"
+              @click="save('add-source', () => (connectedList.length === dataSources.length ? '' : `还有 ${dataSources.length - connectedList.length} 个数据源未完成连接测试`))">保存</button>
+          </div>
+          <ul class="source-list">
+            <li v-for="src in dataSources" :key="src.code">
+              <div class="source-head">
+                <span class="source-code">{{ src.code }}</span>
+                <strong>{{ src.name }}</strong>
+                <span v-if="connected[src.code]" class="verdict pass">连接成功</span>
+                <button v-else type="button" class="secondary-button test-button" :disabled="flow.isDone('add-source')"
+                  @click="testSource(src.code)">连接测试</button>
+              </div>
+              <p class="source-type">{{ src.platform }} ｜ {{ src.meta }}</p>
+              <p class="source-content">数据内容：{{ src.content }}</p>
+            </li>
+          </ul>
+          <template v-if="flow.isDone('add-source')">
+            <p class="sys-toast">4 类数据源均通过授权验证，已接入本次采集任务。</p>
+            <ul class="sys-lines">
+              <li v-for="src in dataSources" :key="src.code">{{ src.code }} {{ src.name }} · {{ src.meta }}</li>
+            </ul>
+          </template>
+        </template>
 
-    <div class="op-flow">
-      <OperationBlock
-        title="新建采集任务"
-        hint="数据中心 → 数据采集管理 → 新建采集任务"
-        :status="flow.status('task')"
-        done-label="任务已创建"
-      >
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label required">任务名称</span>
-            <input v-model="taskForm.name" class="form-control" :disabled="flow.isDone('task')" />
-          </label>
-          <label class="form-item">
-            <span class="form-label required">任务编号</span>
-            <input v-model="taskForm.code" class="form-control" :disabled="flow.isDone('task')" />
-          </label>
-        </div>
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">数据场景</span>
-            <select v-model="taskForm.scene" class="form-control" :disabled="flow.isDone('task')">
-              <option>洪涝应急救援</option><option>日常业务采集</option>
-            </select>
-          </label>
-          <label class="form-item">
-            <span class="form-label required">采集范围</span>
-            <select v-model="taskForm.scope" class="form-control" :disabled="flow.isDone('task')">
-              <option>甲1—甲9网格</option><option>单网格试点</option>
-            </select>
-          </label>
-        </div>
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">采集方式</span>
-            <select v-model="taskForm.method" class="form-control" :disabled="flow.isDone('task')">
-              <option>API接口 + 平台数据 + 无人机数据</option><option>人工填报</option>
-            </select>
-          </label>
-          <label class="form-item">
-            <span class="form-label">更新方式</span>
-            <select v-model="taskForm.refresh" class="form-control" :disabled="flow.isDone('task')">
-              <option>实时更新</option><option>定时更新</option>
-            </select>
-          </label>
-        </div>
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">任务状态</span>
-            <select v-model="taskForm.state" class="form-control" :disabled="flow.isDone('task')">
-              <option>启用</option><option>停用</option>
-            </select>
-          </label>
-        </div>
-        <div class="action-row">
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="flow.isDone('task')"
-            @click="run('task', () => (taskForm.name.trim() && taskForm.code.trim() ? '' : '任务名称与任务编号为必填项'))"
-          >创建任务</button>
-        </div>
+        <!-- 数据采集任务 → 字段映射 → 新增字段 -->
+        <template v-else-if="leaf === 'add-field'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('add-field')"
+              @click="save('add-field')">保存字段映射</button>
+          </div>
+          <div class="score-table-wrap">
+            <table class="calc-table compact">
+              <thead><tr><th>字段名称</th><th>字段编码</th><th>数据类型</th><th>来源</th></tr></thead>
+              <tbody>
+                <tr v-for="row in fields" :key="row[1]">
+                  <th scope="row">{{ row[0] }}</th><td>{{ row[1] }}</td><td>{{ row[2] }}</td><td>{{ row[3] }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">主键</span>
+              <input class="form-control locked" value="网格编号 GRID_ID" disabled />
+            </label>
+            <label class="form-item">
+              <span class="form-label">唯一性约束</span>
+              <input class="form-control locked" value="网格编号 + 采集时间" disabled />
+            </label>
+          </div>
+          <template v-if="flow.isDone('add-field')">
+            <p class="sys-toast">统一字段模型保存成功，{{ fields.length }} 个字段完成映射。</p>
+            <dl class="block-fields">
+              <div class="field-row"><dt>主键</dt><dd>网格编号 GRID_ID</dd></div>
+              <div class="field-row"><dt>唯一性约束</dt><dd>网格编号 + 采集时间</dd></div>
+            </dl>
+          </template>
+        </template>
 
-        <template #result>
-          <p class="sys-toast">采集任务「{{ taskForm.name }}」创建成功，任务编号 {{ taskForm.code }}。</p>
+        <!-- 任务流程 → 添加节点 → Python脚本 -->
+        <template v-else-if="leaf === 'python-node'">
+          <div class="sys-toolbar">
+            <button type="button" class="secondary-button" :disabled="syntaxChecked" @click="checkSyntax">语法检测</button>
+            <button type="button" class="primary-button" :disabled="flow.isDone('python-node')"
+              @click="save('python-node', () => (syntaxChecked ? '' : '请先完成 Python 代码语法检测'))">执行</button>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">节点名称</span>
+              <input class="form-control locked" value="多源洪涝数据自动采集" disabled />
+            </label>
+          </div>
+          <pre class="block-code">{{ pythonCode }}</pre>
+          <p v-if="syntaxChecked" class="sys-toast">Python代码检测通过</p>
+          <template v-if="flow.isDone('python-node')">
+            <ul class="sys-lines">
+              <li v-for="src in dataSources" :key="src.code">{{ src.collect }}</li>
+              <li>甲1—甲9：{{ disasterGrids.length }}/{{ disasterGrids.length }} 完成</li>
+            </ul>
+            <p class="sys-toast">数据采集任务执行完成</p>
+          </template>
+        </template>
+
+        <!-- 数据处理 → 数据提取 → 新建提取规则 -->
+        <template v-else-if="leaf === 'extract-rule'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="extracting || flow.isDone('extract-rule')" @click="startExtract">
+              {{ extracting ? '提取中…' : '开始提取' }}
+            </button>
+          </div>
+          <table class="calc-table compact">
+            <thead><tr><th style="width: 56px">提取</th><th style="width: 110px">维度</th><th>提取字段</th></tr></thead>
+            <tbody>
+              <tr v-for="dim in extractDimensions" :key="dim.name">
+                <td><input v-model="dims[dim.name]" type="checkbox" :disabled="flow.isDone('extract-rule')" /></td>
+                <th scope="row">{{ dim.name }}</th>
+                <td>{{ dim.fields }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="extractProgress > 0" class="gauge-track">
+            <span class="gauge-fill" :style="{ width: `${extractProgress}%` }" />
+          </div>
+          <p v-if="extractProgress > 0" class="gauge-caption">数据提取进度：{{ extractProgress }}%</p>
+          <template v-if="flow.isDone('extract-rule')">
+            <p class="sys-toast">100% —— 数据提取完成</p>
+            <ul class="sys-lines">
+              <li v-for="dim in chosenDims" :key="dim.name">{{ dim.name }}：{{ dim.fields }}</li>
+            </ul>
+          </template>
+        </template>
+
+        <!-- 数据安全中心 → 数据分级分类 -->
+        <template v-else-if="leaf === 'data-grade'">
+          <div class="sys-toolbar">
+            <button type="button" class="secondary-button" :disabled="flow.isDone('data-grade')"
+              @click="guardItems.forEach((n) => (guards[n] = true))">全部勾选</button>
+            <button type="button" class="primary-button" :disabled="flow.isDone('data-grade')"
+              @click="save('data-grade', securityError)">启用权限控制</button>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">数据集</span>
+              <input class="form-control locked" value="洪涝应急救援九网格数据" disabled />
+            </label>
+            <label class="form-item">
+              <span class="form-label required">数据级别</span>
+              <select v-model="dataLevel" class="form-control" :disabled="flow.isDone('data-grade')">
+                <option>敏感数据</option><option>内部数据</option><option>公开数据</option>
+              </select>
+            </label>
+          </div>
+          <div class="score-table-wrap">
+            <table class="calc-table compact">
+              <thead><tr><th>角色</th><th>访问规则</th></tr></thead>
+              <tbody>
+                <tr v-for="row in accessRules" :key="row.role">
+                  <th scope="row">{{ row.role }}</th>
+                  <td>
+                    <span v-if="row.denied" class="verdict fail">{{ row.access }}</span>
+                    <template v-else>{{ row.access }}</template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="form-desc">安全控制项</p>
+          <div class="checkbox-group">
+            <label v-for="n in guardItems" :key="n" class="checkbox-item">
+              <input v-model="guards[n]" type="checkbox" :disabled="flow.isDone('data-grade')" />{{ n }}
+            </label>
+          </div>
+          <template v-if="flow.isDone('data-grade')">
+            <p class="sys-toast">敏感数据访问控制已启用</p>
+            <ul class="sys-lines">
+              <li v-for="row in accessRules" :key="row.role" :class="{ warn: row.denied }">{{ row.role }}：{{ row.access }}</li>
+              <li class="info">{{ enabledGuards.join(' ｜ ') }}</li>
+            </ul>
+          </template>
+        </template>
+
+        <!-- 数据质量 → 异常监测 → 新建监测规则 -->
+        <template v-else-if="leaf === 'iqr-rule'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('iqr-rule')"
+              @click="save('iqr-rule')">启动监测</button>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">规则名称</span>
+              <input class="form-control locked" value="累计降雨量异常波动监测" disabled />
+            </label>
+            <label class="form-item">
+              <span class="form-label">监测字段</span>
+              <input class="form-control locked" value="累计降雨量" disabled />
+            </label>
+            <label class="form-item">
+              <span class="form-label">监测方法</span>
+              <input class="form-control locked" value="IQR四分位距法" disabled />
+            </label>
+          </div>
+          <p class="block-formula">IQR = Q3 － Q1　｜　异常下限 = Q1 － 1.5 × IQR　｜　异常上限 = Q3 ＋ 1.5 × IQR</p>
           <dl class="block-fields">
-            <div class="field-row"><dt>数据场景</dt><dd>{{ taskForm.scene }}</dd></div>
+            <div class="field-row"><dt>异常处置方式</dt><dd>标记异常 → 不自动删除 → 多源复核</dd></div>
+            <div class="field-row"><dt>复核数据源</dt><dd>{{ reviewSources.join('、') }}</dd></div>
+            <div class="field-row"><dt>异常等级</dt><dd>黄色：统计异常；经多源核验确认为真实极端灾情后转为红色重点关注，不删除原始数据</dd></div>
+          </dl>
+          <template v-if="flow.isDone('iqr-rule')">
+            <p class="sys-toast">异常波动监测——运行中</p>
+            <div class="stat-grid">
+              <div class="stat-cell"><span class="stat-label">Q1</span><strong class="stat-value">{{ num(iqr.q1, 2) }}</strong></div>
+              <div class="stat-cell"><span class="stat-label">Q3</span><strong class="stat-value">{{ num(iqr.q3, 2) }}</strong></div>
+              <div class="stat-cell"><span class="stat-label">IQR</span><strong class="stat-value">{{ num(iqr.range, 2) }}</strong></div>
+              <div class="stat-cell">
+                <span class="stat-label">异常下限 Q1－1.5×IQR</span>
+                <strong class="stat-value">{{ num(iqr.lower, 2) }}</strong>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">异常上限 Q3＋1.5×IQR</span>
+                <strong class="stat-value accent">{{ num(iqr.upper, 2) }}</strong>
+              </div>
+            </div>
+            <ul class="share-list">
+              <li v-for="item in flagged" :key="item.grid">
+                <span class="share-name">{{ item.grid }}</span>
+                <span class="share-bar">
+                  <span class="share-fill" :class="{ warn: item.outlier }" :style="{ width: `${(item.value / 160) * 100}%` }" />
+                </span>
+                <span class="share-value">{{ item.value }} mm</span>
+                <span class="share-pct">
+                  <span class="verdict" :class="item.outlier ? 'warn' : 'pass'">{{ item.outlier ? '统计异常' : '正常' }}</span>
+                </span>
+              </li>
+            </ul>
+            <ul class="sys-lines">
+              <li v-for="item in outliers" :key="item.grid" class="warn">
+                {{ item.grid }} 累计降雨量 {{ item.value }}mm 超出异常上限 {{ num(iqr.upper, 2) }}，黄色统计异常，转多源复核
+              </li>
+            </ul>
+          </template>
+        </template>
+
+        <!-- 数据质量 → 质量规则配置 -->
+        <template v-else-if="leaf === 'quality-rule'">
+          <div class="sys-toolbar">
+            <button type="button" class="secondary-button" :disabled="flow.isDone('quality-rule')"
+              @click="qualityRules.forEach((r) => (rules[r.id] = true))">全部启用</button>
+            <button type="button" class="primary-button" :disabled="flow.isDone('quality-rule')"
+              @click="save('quality-rule', () => (enabledRules.length === qualityRules.length ? '' : `还有 ${qualityRules.length - enabledRules.length} 项质量规则未启用`))">启用质量监测</button>
+          </div>
+          <div class="score-table-wrap">
+            <table class="calc-table compact">
+              <thead><tr><th style="width: 56px">启用</th><th>规则</th><th>校验内容</th><th>系统动作</th></tr></thead>
+              <tbody>
+                <tr v-for="rule in qualityRules" :key="rule.id">
+                  <td><input v-model="rules[rule.id]" type="checkbox" :disabled="flow.isDone('quality-rule')" /></td>
+                  <th scope="row">{{ rule.id }}<em class="row-unit">{{ rule.name }}</em></th>
+                  <td>{{ rule.detail }}</td>
+                  <td>{{ rule.action }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <template v-if="flow.isDone('quality-rule')">
+            <p class="sys-toast">4 项数据质量规则已启用并进入运行状态。</p>
+            <ul class="sys-lines">
+              <li v-for="rule in enabledRules" :key="rule.id">{{ rule.name }} · {{ rule.action === '—' ? rule.detail : rule.action }}</li>
+            </ul>
+          </template>
+        </template>
+
+        <!-- 数据采集任务 → 运行采集任务 -->
+        <template v-else-if="leaf === 'run-task'">
+          <div class="sys-toolbar">
+            <button type="button" class="primary-button" :disabled="flow.isDone('run-task')"
+              @click="save('run-task', runtimeError)">运行</button>
+          </div>
+          <dl class="block-fields">
+            <div class="field-row"><dt>采集任务</dt><dd>{{ taskForm.name }}（{{ taskForm.code }}）</dd></div>
             <div class="field-row"><dt>采集范围</dt><dd>{{ taskForm.scope }}</dd></div>
-            <div class="field-row"><dt>采集方式</dt><dd>{{ taskForm.method }}</dd></div>
-            <div class="field-row"><dt>更新方式</dt><dd>{{ taskForm.refresh }}</dd></div>
-            <div class="field-row"><dt>任务状态</dt><dd>{{ taskForm.state }}</dd></div>
+            <div class="field-row"><dt>任务配置</dt><dd>{{ dataSources.length }} 个数据源 ｜ {{ fields.length }} 个映射字段 ｜ {{ enabledRules.length }} 项质量规则</dd></div>
           </dl>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="配置多源数据接口"
-        hint="数据源管理 → 添加数据源"
-        :status="flow.status('sources')"
-        done-label="4/4 连接成功"
-      >
-        <ul class="source-list">
-          <li v-for="src in dataSources" :key="src.code">
-            <div class="source-head">
-              <span class="source-code">{{ src.code }}</span>
-              <strong>{{ src.name }}</strong>
-              <span v-if="connected[src.code]" class="verdict pass">连接成功</span>
-              <button
-                v-else
-                type="button"
-                class="secondary-button test-button"
-                :disabled="flow.isDone('sources')"
-                @click="testSource(src.code)"
-              >连接测试</button>
+          <ul v-if="runtimeMissing.length" class="sys-lines">
+            <li v-for="item in runtimeMissing" :key="item.id" class="warn">{{ item.label }} 尚未配置完成</li>
+          </ul>
+          <template v-if="flow.isDone('run-task')">
+            <div class="calc-subhead"><h3>数据源连接状态</h3></div>
+            <ul class="sys-lines">
+              <li v-for="src in dataSources" :key="src.code">{{ src.short }}　✅ 正常</li>
+            </ul>
+            <div class="calc-subhead"><h3>数据采集状态</h3></div>
+            <div class="grid-chips">
+              <span v-for="grid in disasterGrids" :key="grid.id" class="grid-chip done">{{ grid.id }}<em>✅</em></span>
             </div>
-            <p class="source-type">{{ src.platform }} ｜ {{ src.meta }}</p>
-            <p class="source-content">数据内容：{{ src.content }}</p>
-          </li>
-        </ul>
-        <div class="action-row">
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="flow.isDone('sources')"
-            @click="run('sources', () => (connectedList.length === dataSources.length ? '' : `还有 ${dataSources.length - connectedList.length} 个数据源未完成连接测试`))"
-          >保存数据源配置</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">4 类数据源均通过授权验证，已接入本次采集任务。</p>
-          <ul class="sys-lines">
-            <li v-for="src in dataSources" :key="src.code">{{ src.code }} {{ src.name }} · {{ src.meta }}</li>
-          </ul>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="配置数据字段"
-        hint="数据采集任务 → 字段映射 → 新增字段"
-        :status="flow.status('fields')"
-        done-label="字段映射已保存"
-      >
-        <div class="score-table-wrap">
-          <table class="calc-table compact">
-            <thead><tr><th>字段名称</th><th>字段编码</th><th>数据类型</th><th>来源</th></tr></thead>
-            <tbody>
-              <tr v-for="row in fields" :key="row[1]">
-                <th scope="row">{{ row[0] }}</th><td>{{ row[1] }}</td><td>{{ row[2] }}</td><td>{{ row[3] }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">主键</span>
-            <input class="form-control locked" value="网格编号 GRID_ID" disabled />
-          </label>
-          <label class="form-item">
-            <span class="form-label">唯一性约束</span>
-            <input class="form-control locked" value="网格编号 + 采集时间" disabled />
-          </label>
-        </div>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('fields')" @click="run('fields')">保存字段映射</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">统一字段模型保存成功，{{ fields.length }} 个字段完成映射。</p>
-          <dl class="block-fields">
-            <div class="field-row"><dt>主键</dt><dd>网格编号 GRID_ID</dd></div>
-            <div class="field-row"><dt>唯一性约束</dt><dd>网格编号 + 采集时间</dd></div>
-          </dl>
-          <p class="calc-caption">各平台原始数据已映射为统一的九网格灾情数据结构。</p>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="配置 Python 数据采集节点"
-        hint="任务流程 → 添加节点 → Python脚本"
-        :status="flow.status('script')"
-        done-label="采集执行完成"
-      >
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">节点名称</span>
-            <input class="form-control locked" value="多源洪涝数据自动采集" disabled />
-          </label>
-        </div>
-        <pre class="block-code">{{ pythonCode }}</pre>
-        <div class="action-row">
-          <button type="button" class="secondary-button" :disabled="syntaxChecked" @click="checkSyntax">语法检测</button>
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="flow.isDone('script')"
-            @click="run('script', () => (syntaxChecked ? '' : '请先完成 Python 代码语法检测'))"
-          >执行</button>
-        </div>
-        <p v-if="syntaxChecked" class="sys-toast">Python代码检测通过</p>
-
-        <template #result>
-          <ul class="sys-lines">
-            <li v-for="src in dataSources" :key="src.code">{{ src.collect }}</li>
-            <li>甲1—甲9：{{ disasterGrids.length }}/{{ disasterGrids.length }} 完成</li>
-          </ul>
-          <p class="sys-toast">数据采集任务执行完成</p>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="多维度数据提取"
-        hint="数据处理 → 数据提取 → 新建提取规则"
-        :status="flow.status('extract')"
-        done-label="提取完成 100%"
-      >
-        <table class="calc-table compact">
-          <thead><tr><th style="width: 56px">提取</th><th style="width: 110px">维度</th><th>提取字段</th></tr></thead>
-          <tbody>
-            <tr v-for="dim in extractDimensions" :key="dim.name">
-              <td><input v-model="dims[dim.name]" type="checkbox" :disabled="flow.isDone('extract')" /></td>
-              <th scope="row">{{ dim.name }}</th>
-              <td>{{ dim.fields }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="extracting || flow.isDone('extract')" @click="startExtract">
-            {{ extracting ? '提取中…' : '开始提取' }}
-          </button>
-        </div>
-        <div v-if="extractProgress > 0" class="gauge-track">
-          <span class="gauge-fill" :style="{ width: `${extractProgress}%` }" />
-        </div>
-        <p v-if="extractProgress > 0" class="gauge-caption">数据提取进度：{{ extractProgress }}%</p>
-
-        <template #result>
-          <p class="sys-toast">100% —— 数据提取完成</p>
-          <ul class="sys-lines">
-            <li v-for="dim in chosenDims" :key="dim.name">{{ dim.name }}：{{ dim.fields }}</li>
-          </ul>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="设置数据访问权限"
-        hint="数据安全中心 → 数据分级分类"
-        :status="flow.status('security')"
-        done-label="访问控制已启用"
-      >
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">数据集</span>
-            <input class="form-control locked" value="洪涝应急救援九网格数据" disabled />
-          </label>
-          <label class="form-item">
-            <span class="form-label required">数据级别</span>
-            <select v-model="dataLevel" class="form-control" :disabled="flow.isDone('security')">
-              <option>敏感数据</option><option>内部数据</option><option>公开数据</option>
-            </select>
-          </label>
-        </div>
-        <div class="score-table-wrap">
-          <table class="calc-table compact">
-            <thead><tr><th>角色</th><th>访问规则</th></tr></thead>
-            <tbody>
-              <tr v-for="row in accessRules" :key="row.role">
-                <th scope="row">{{ row.role }}</th>
-                <td>
-                  <span v-if="row.denied" class="verdict fail">{{ row.access }}</span>
-                  <template v-else>{{ row.access }}</template>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="form-desc">安全控制项</p>
-        <div class="checkbox-group">
-          <label v-for="n in guardItems" :key="n" class="checkbox-item">
-            <input v-model="guards[n]" type="checkbox" :disabled="flow.isDone('security')" />{{ n }}
-          </label>
-        </div>
-        <div class="action-row">
-          <button type="button" class="secondary-button" :disabled="flow.isDone('security')" @click="enableAllGuards">全部勾选</button>
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="flow.isDone('security')"
-            @click="run('security', securityError)"
-          >启用权限控制</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">敏感数据访问控制已启用</p>
-          <ul class="sys-lines">
-            <li v-for="row in accessRules" :key="row.role" :class="{ warn: row.denied }">{{ row.role }}：{{ row.access }}</li>
-            <li class="info">{{ enabledGuards.join(' ｜ ') }}</li>
-          </ul>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="累计降雨量异常波动监测"
-        hint="数据质量 → 异常监测 → 新建监测规则"
-        :status="flow.status('iqr')"
-        done-label="监测运行中"
-      >
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">规则名称</span>
-            <input class="form-control locked" value="累计降雨量异常波动监测" disabled />
-          </label>
-          <label class="form-item">
-            <span class="form-label">监测字段</span>
-            <input class="form-control locked" value="累计降雨量" disabled />
-          </label>
-          <label class="form-item">
-            <span class="form-label">监测方法</span>
-            <input class="form-control locked" value="IQR四分位距法" disabled />
-          </label>
-        </div>
-        <p class="block-formula">IQR = Q3 － Q1　｜　异常下限 = Q1 － 1.5 × IQR　｜　异常上限 = Q3 ＋ 1.5 × IQR</p>
-        <dl class="block-fields">
-          <div class="field-row"><dt>异常处置方式</dt><dd>标记异常 → 不自动删除 → 多源复核</dd></div>
-          <div class="field-row"><dt>复核数据源</dt><dd>{{ reviewSources.join('、') }}</dd></div>
-          <div class="field-row"><dt>异常等级</dt><dd>黄色：统计异常；经多源核验确认为真实极端灾情后转为红色重点关注，不删除原始数据</dd></div>
-        </dl>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('iqr')" @click="run('iqr')">启动监测</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">异常波动监测——运行中</p>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-label">Q1</span><strong class="stat-value">{{ num(iqr.q1, 2) }}</strong></div>
-            <div class="stat-cell"><span class="stat-label">Q3</span><strong class="stat-value">{{ num(iqr.q3, 2) }}</strong></div>
-            <div class="stat-cell"><span class="stat-label">IQR</span><strong class="stat-value">{{ num(iqr.range, 2) }}</strong></div>
-            <div class="stat-cell">
-              <span class="stat-label">异常下限 Q1－1.5×IQR</span>
-              <strong class="stat-value">{{ num(iqr.lower, 2) }}</strong>
+            <div class="calc-subhead"><h3>系统状态</h3></div>
+            <div class="stat-grid">
+              <div class="stat-cell">
+                <span class="stat-label">采集完成率</span>
+                <strong class="stat-value accent">{{ percent(collectedGrids.length / disasterGrids.length, 0) }}</strong>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">数据源连接</span>
+                <strong class="stat-value">{{ connectedList.length }}/{{ dataSources.length }}</strong>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">网格覆盖</span>
+                <strong class="stat-value">{{ collectedGrids.length }}/{{ disasterGrids.length }}</strong>
+              </div>
+              <div class="stat-cell"><span class="stat-label">安全监测</span><strong class="stat-value small">运行中</strong></div>
+              <div class="stat-cell"><span class="stat-label">异常监测</span><strong class="stat-value small">运行中</strong></div>
             </div>
-            <div class="stat-cell">
-              <span class="stat-label">异常上限 Q3＋1.5×IQR</span>
-              <strong class="stat-value accent">{{ num(iqr.upper, 2) }}</strong>
-            </div>
+          </template>
+        </template>
+
+        <!-- 数据管理 → 数据导出 -->
+        <template v-else-if="leaf === 'data-export'">
+          <div class="sys-toolbar">
+            <button type="button" class="secondary-button" :disabled="flow.isDone('data-export')"
+              @click="exportItems.forEach((n) => (exportKeeps[n] = true))">全部勾选</button>
+            <button type="button" class="primary-button" :disabled="flow.isDone('data-export')"
+              @click="save('data-export', exportError)">导出</button>
           </div>
-          <ul class="share-list">
-            <li v-for="item in flagged" :key="item.grid">
-              <span class="share-name">{{ item.grid }}</span>
-              <span class="share-bar">
-                <span class="share-fill" :class="{ warn: item.outlier }" :style="{ width: `${(item.value / 160) * 100}%` }" />
-              </span>
-              <span class="share-value">{{ item.value }} mm</span>
-              <span class="share-pct">
-                <span class="verdict" :class="item.outlier ? 'warn' : 'pass'">{{ item.outlier ? '统计异常' : '正常' }}</span>
-              </span>
-            </li>
-          </ul>
-          <ul class="sys-lines">
-            <li v-for="item in outliers" :key="item.grid" class="warn">
-              {{ item.grid }} 累计降雨量 {{ item.value }}mm 超出异常上限 {{ num(iqr.upper, 2) }}，黄色统计异常，转多源复核
-            </li>
-          </ul>
-          <p class="calc-note">
-            统计异常不等于错误数据：系统只标记不删除，须结合{{ reviewSources.join('、') }}进一步复核；
-            经多源核验确认为真实极端灾情后转为红色重点关注，保留原始数据。
-          </p>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="设置数据质量规则"
-        hint="数据质量 → 质量规则配置"
-        :status="flow.status('quality')"
-        done-label="4 项规则运行中"
-      >
-        <div class="score-table-wrap">
-          <table class="calc-table compact">
-            <thead><tr><th style="width: 56px">启用</th><th>规则</th><th>校验内容</th><th>系统动作</th></tr></thead>
-            <tbody>
-              <tr v-for="rule in qualityRules" :key="rule.id">
-                <td><input v-model="rules[rule.id]" type="checkbox" :disabled="flow.isDone('quality')" /></td>
-                <th scope="row">{{ rule.id }}<em class="row-unit">{{ rule.name }}</em></th>
-                <td>{{ rule.detail }}</td>
-                <td>{{ rule.action }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="action-row">
-          <button type="button" class="secondary-button" :disabled="flow.isDone('quality')" @click="enableAllRules">全部启用</button>
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="flow.isDone('quality')"
-            @click="run('quality', () => (enabledRules.length === qualityRules.length ? '' : `还有 ${qualityRules.length - enabledRules.length} 项质量规则未启用`))"
-          >启用质量监测</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">4 项数据质量规则已启用并进入运行状态。</p>
-          <ul class="sys-lines">
-            <li v-for="rule in enabledRules" :key="rule.id">{{ rule.name }} · {{ rule.action === '—' ? rule.detail : rule.action }}</li>
-          </ul>
-        </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="运行采集系统"
-        hint="洪涝应急救援数据采集任务 → 运行"
-        :status="flow.status('runtime')"
-        done-label="采集系统运行正常"
-      >
-        <p class="calc-caption">
-          任务「{{ taskForm.name }}」配置已就绪：{{ dataSources.length }} 个数据源、{{ fields.length }} 个映射字段、
-          {{ enabledRules.length }} 项质量规则、异常波动监测。
-        </p>
-        <div class="action-row">
-          <button type="button" class="primary-button" :disabled="flow.isDone('runtime')" @click="run('runtime')">运行</button>
-        </div>
-
-        <template #result>
-          <div class="calc-subhead"><h3>数据源连接状态</h3></div>
-          <ul class="sys-lines">
-            <li v-for="src in dataSources" :key="src.code">{{ src.short }}　✅ 正常</li>
-          </ul>
-          <div class="calc-subhead"><h3>数据采集状态</h3></div>
-          <div class="grid-chips">
-            <span v-for="grid in disasterGrids" :key="grid.id" class="grid-chip done">{{ grid.id }}<em>✅</em></span>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label">导出对象</span>
+              <input class="form-control locked" value="《洪涝应急救援九网格原始数据表》" disabled />
+            </label>
+            <label class="form-item">
+              <span class="form-label">导出格式</span>
+              <select v-model="exportFormat" class="form-control" :disabled="flow.isDone('data-export')">
+                <option>Excel</option><option>CSV</option>
+              </select>
+            </label>
           </div>
-          <div class="calc-subhead"><h3>系统状态</h3></div>
-          <div class="stat-grid">
-            <div class="stat-cell">
-              <span class="stat-label">采集完成率</span>
-              <strong class="stat-value accent">{{ percent(collectedGrids.length / disasterGrids.length, 0) }}</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">数据源连接</span>
-              <strong class="stat-value">{{ connectedList.length }}/{{ dataSources.length }}</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">网格覆盖</span>
-              <strong class="stat-value">{{ collectedGrids.length }}/{{ disasterGrids.length }}</strong>
-            </div>
-            <div class="stat-cell"><span class="stat-label">安全监测</span><strong class="stat-value small">运行中</strong></div>
-            <div class="stat-cell"><span class="stat-label">异常监测</span><strong class="stat-value small">运行中</strong></div>
+          <div class="checkbox-group">
+            <label v-for="n in exportItems" :key="n" class="checkbox-item">
+              <input v-model="exportKeeps[n]" type="checkbox" :disabled="flow.isDone('data-export')" />{{ n }}
+            </label>
           </div>
+          <template v-if="flow.isDone('data-export')">
+            <p class="sys-toast">数据导出成功</p>
+            <dl class="block-fields">
+              <div class="field-row"><dt>导出对象</dt><dd>《洪涝应急救援九网格原始数据表》</dd></div>
+              <div class="field-row"><dt>导出格式</dt><dd>{{ exportFormat }}</dd></div>
+              <div class="field-row"><dt>留痕内容</dt><dd>{{ chosenExports.join('、') }}</dd></div>
+              <div class="field-row"><dt>同步去向</dt><dd>数据共享中心</dd></div>
+            </dl>
+          </template>
         </template>
-      </OperationBlock>
-
-      <OperationBlock
-        title="导出数据源"
-        hint="数据管理 → 数据导出"
-        :status="flow.status('export')"
-        done-label="数据已导出"
-      >
-        <div class="form-row">
-          <label class="form-item">
-            <span class="form-label">导出对象</span>
-            <input class="form-control locked" value="《洪涝应急救援九网格原始数据表》" disabled />
-          </label>
-          <label class="form-item">
-            <span class="form-label">导出格式</span>
-            <select v-model="exportFormat" class="form-control" :disabled="flow.isDone('export')">
-              <option>Excel</option><option>CSV</option>
-            </select>
-          </label>
-        </div>
-        <div class="checkbox-group">
-          <label v-for="n in exportItems" :key="n" class="checkbox-item">
-            <input v-model="exportKeeps[n]" type="checkbox" :disabled="flow.isDone('export')" />{{ n }}
-          </label>
-        </div>
-        <div class="action-row">
-          <button type="button" class="secondary-button" :disabled="flow.isDone('export')" @click="selectAllExports">全部勾选</button>
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="flow.isDone('export')"
-            @click="run('export', () => (chosenExports.length === exportItems.length ? '' : `还有 ${exportItems.length - chosenExports.length} 项导出留痕未勾选`))"
-          >导出</button>
-        </div>
-
-        <template #result>
-          <p class="sys-toast">数据导出成功</p>
-          <dl class="block-fields">
-            <div class="field-row"><dt>导出对象</dt><dd>《洪涝应急救援九网格原始数据表》</dd></div>
-            <div class="field-row"><dt>导出格式</dt><dd>{{ exportFormat }}</dd></div>
-            <div class="field-row"><dt>留痕内容</dt><dd>{{ chosenExports.join('、') }}</dd></div>
-            <div class="field-row"><dt>同步去向</dt><dd>数据共享中心</dd></div>
-          </dl>
-          <div class="calc-result">
-            <p class="result-line">
-              应急管理、气象监测、无人机巡航与御洪星四类数据源已接入，甲1—甲9 九网格灾情数据完成采集与多维提取；
-              敏感数据授权访问、操作留痕与 IQR 异常波动监测同步运行，标准化数据源已导出至数据共享中心，可进入灾情数据清洗。
-            </p>
-          </div>
-        </template>
-      </OperationBlock>
-    </div>
+      </template>
+    </SystemShell>
   </PanelShell>
 </template>
 

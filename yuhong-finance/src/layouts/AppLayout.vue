@@ -128,7 +128,7 @@ function openTask(roleId, taskKey) {
         </nav>
       </aside>
 
-      <main class="app-content">
+      <main class="app-content" :class="{ 'is-task': route.name === 'task' }">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="`${route.fullPath}#${viewVersion}`" />
         </router-view>

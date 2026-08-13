@@ -1,0 +1,9 @@
+clear-button                 ClearPageData.vue
+clear-data                   ClearPageData.vue
+clear-tip                    ClearPageData.vue
+nav-role                     AppLayout.vue
+page-title-main              AssistantView.vue, HomeView.vue, RoleTasksView.vue, WorkbookView.vue
+role-item                    AppLayout.vue
+task-header-main             TaskDetailView.vue
+task-page                    TaskDetailView.vue
+toggle-label                 AppLayout.vue

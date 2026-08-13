@@ -37,12 +37,13 @@ export function useTaskFlow(taskKey, ids) {
     return activeId.value === id ? 'active' : 'locked'
   }
 
-  /** 完成一项操作；同时补齐它前面所有未完成的操作，避免出现空洞。 */
+  /**
+   * 完成一项操作。只记录这一项：顺序型流程本来就只能按序执行，
+   * 而菜单导航型页面允许任意顺序进入，不能替学生把前面的补上。
+   */
   function complete(id) {
-    const index = ids.indexOf(id)
-    if (index === -1) return
-    const next = ids.slice(0, index + 1)
-    done.value = [...new Set([...done.value, ...next])]
+    if (!ids.includes(id) || done.value.includes(id)) return
+    done.value = [...done.value, id]
   }
 
   /** 撤销到该操作之前，其后的结果一并清空。 */

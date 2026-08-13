@@ -29,23 +29,12 @@ function goTask(target) {
 
 <template>
   <div v-if="task && role" class="page task-page">
-    <nav class="breadcrumb">
-      <button type="button" class="crumb-link" @click="router.push('/')">首页</button>
-      <span class="crumb-sep">/</span>
-      <button type="button" class="crumb-link" @click="goRole">{{ role.name }}</button>
-      <span class="crumb-sep">/</span>
-      <span class="crumb-current">{{ task.title }}</span>
-    </nav>
-
     <header class="task-header">
       <div class="task-header-main">
-        <div class="task-header-tags">
-          <span class="task-no-tag">任务 {{ seq }}</span>
-          <span class="owner-tag">主责 <b>{{ getRoleName(task.owner) }}</b></span>
-          <span v-if="collaboratorNames" class="stage-tag">协同 <b>{{ collaboratorNames }}</b></span>
-        </div>
+        <span class="task-no-tag">任务 {{ seq }}</span>
         <h1 class="task-title">{{ task.title }}</h1>
-        <p class="task-summary">{{ task.summary }}</p>
+        <span class="owner-tag">主责 <b>{{ getRoleName(task.owner) }}</b></span>
+        <span v-if="collaboratorNames" class="stage-tag">协同 <b>{{ collaboratorNames }}</b></span>
       </div>
       <div class="task-header-actions">
         <button type="button" class="ghost-button" @click="goRole">返回岗位</button>
@@ -53,19 +42,16 @@ function goTask(target) {
           <button type="button" class="ghost-button" :disabled="!neighbours.prev" @click="goTask(neighbours.prev)">
             上一任务
           </button>
-          <button type="button" class="primary-button" :disabled="!neighbours.next" @click="goTask(neighbours.next)">
+          <button type="button" class="ghost-button" :disabled="!neighbours.next" @click="goTask(neighbours.next)">
             下一任务
           </button>
         </div>
       </div>
     </header>
 
-    <div v-if="task.outputs.length" class="output-strip">
-      <span class="output-label">任务输出</span>
-      <span v-for="item in task.outputs" :key="item" class="output-chip">《{{ item }}》</span>
+    <div class="task-workspace">
+      <TaskPanelHost :panel="task.panel" :task="task" />
     </div>
-
-    <TaskPanelHost :panel="task.panel" :task="task" />
   </div>
 
   <div v-else class="page">
