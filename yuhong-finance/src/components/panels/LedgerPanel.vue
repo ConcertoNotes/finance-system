@@ -220,6 +220,7 @@ function resetAll() {
     <SystemShell
       system="财务共享平台"
       operator="财务主管统筹岗"
+      require-login
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
       :steps="STEPS"

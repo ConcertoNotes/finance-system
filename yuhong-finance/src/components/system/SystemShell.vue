@@ -5,8 +5,6 @@ import { computed, ref, watch } from 'vue'
 import SystemMenuNode from './SystemMenuNode.vue'
 import StepBar from './StepBar.vue'
 
-const SESSION_KEY = 'yuhong-sys-logged-in'
-
 const props = defineProps({
   system: { type: String, required: true },
   menu: { type: Array, required: true },
@@ -18,11 +16,13 @@ const props = defineProps({
   account: { type: String, default: 'HJ-2026-001' },
   error: { type: String, default: '' },
   steps: { type: Array, default: () => [] },
+  /** 仅专项账套启用页需要登录，其余任务直接进入系统。 */
+  requireLogin: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:activeId', 'reset'])
 
-const loggedIn = ref(typeof sessionStorage !== 'undefined' && sessionStorage.getItem(SESSION_KEY) === '1')
+const loggedIn = ref(!props.requireLogin)
 const openIds = ref([])
 const password = ref('********')
 
@@ -73,13 +73,12 @@ function open(id) {
 
 function login() {
   loggedIn.value = true
-  sessionStorage.setItem(SESSION_KEY, '1')
 }
 
 function logout() {
-  loggedIn.value = false
   openIds.value = []
   emit('update:activeId', '')
+  if (props.requireLogin) loggedIn.value = false
 }
 
 defineExpose({ logout })
