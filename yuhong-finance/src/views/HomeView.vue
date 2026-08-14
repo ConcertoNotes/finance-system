@@ -20,7 +20,7 @@ const roleCards = computed(() =>
       <div class="page-title-main">
         <h1 class="page-title">御洪智策 · 洪涝应急财经决策平台</h1>
         <p class="page-subtitle">
-          业务内容取自四份岗位工作簿与两张计算表。左侧选择岗位后，右侧显示该岗位承担的全部任务卡片，点击卡片进入任务操作台。
+          业务内容取自阶段一、阶段一补充表、阶段二岗位工作簿与三张计算表。左侧选择岗位后，右侧显示该岗位承担的全部任务卡片，点击卡片进入任务操作台。
         </p>
       </div>
       <div class="page-title-side">

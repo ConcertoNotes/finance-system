@@ -6,19 +6,19 @@ import { allTasksInOrder, getRoleSteps, getTask, getTaskSeq, getTasksByRole, tas
 
 const roleIds = roles.map((role) => role.id)
 
-test('共 11 个任务，前 5 个来自第一份工作簿、后 6 个来自第二份', () => {
-  assert.equal(tasks.length, 11)
-  assert.equal(tasks.filter((t) => t.stage === 1).length, 5)
+test('共 14 个任务，前 8 个来自第一阶段（含补充表）、后 6 个来自第二份', () => {
+  assert.equal(tasks.length, 14)
+  assert.equal(tasks.filter((t) => t.stage === 1).length, 8)
   assert.equal(tasks.filter((t) => t.stage === 2).length, 6)
 })
 
-test('全流程任务号连续 1—11，第二份工作簿的任务1接续为任务6', () => {
+test('全流程任务号连续 1—14，第二份工作簿的任务1接续为任务9', () => {
   assert.deepEqual(
     allTasksInOrder.map((task) => task.seq),
-    Array.from({ length: 11 }, (_, i) => i + 1),
+    Array.from({ length: 14 }, (_, i) => i + 1),
   )
-  assert.equal(allTasksInOrder.find((task) => task.key === 's2-t1').seq, 6)
-  assert.equal(allTasksInOrder.find((task) => task.key === 's2-t6').seq, 11)
+  assert.equal(allTasksInOrder.find((task) => task.key === 's2-t1').seq, 9)
+  assert.equal(allTasksInOrder.find((task) => task.key === 's2-t6').seq, 14)
 })
 
 test('岗位内任务号从 1 连续排到本岗位任务总数', () => {
@@ -32,10 +32,10 @@ test('岗位内任务号从 1 连续排到本岗位任务总数', () => {
 })
 
 test('同一任务在不同岗位下有各自的岗位内编号', () => {
-  // 突发事件处置是统筹岗的第 5 项、采购岗的第 7 项、风控岗的第 3 项
-  assert.equal(getTaskSeq('finance-lead', 's2-t5'), 5)
-  assert.equal(getTaskSeq('procurement', 's2-t5'), 7)
-  assert.equal(getTaskSeq('fund-risk', 's2-t5'), 3)
+  // 阶段二突发事件处置：统筹岗第 7 项、采购岗第 8 项、风控岗第 4 项
+  assert.equal(getTaskSeq('finance-lead', 's2-t5'), 7)
+  assert.equal(getTaskSeq('procurement', 's2-t5'), 8)
+  assert.equal(getTaskSeq('fund-risk', 's2-t5'), 4)
 })
 
 test('第一份工作簿的任务标题与原文一致', () => {
@@ -49,6 +49,9 @@ test('第一份工作簿的任务标题与原文一致', () => {
     '数据建模分析合规性检测',
     '救援人员保险方案比较',
     '将灾情数据转换为成本动因',
+    '编制A、B、C三受灾等级预算',
+    'B方案预算审批',
+    '第一次突发事件——受灾人数突然增加',
   ])
 })
 
@@ -58,19 +61,23 @@ test('任务归属与工作表一致', () => {
   assert.equal(getTask('s1-t3').owner, 'finance-lead')
   assert.equal(getTask('s1-t4').owner, 'procurement')
   assert.equal(getTask('s1-t5').owner, 'budget-performance')
+  assert.equal(getTask('s1-t6').owner, 'budget-performance')
+  assert.equal(getTask('s1-t7').owner, 'finance-lead')
+  assert.equal(getTask('s1-t8').owner, 'budget-performance')
 })
 
-test('资金核算风控岗只承担后 4 项任务', () => {
+test('资金核算风控岗承担补充表突发事件与后 4 项阶段二任务', () => {
   const list = getTasksByRole('fund-risk')
-  assert.equal(list.length, 4)
-  assert.ok(list.every((task) => task.stage === 2))
+  assert.equal(list.length, 5)
+  assert.equal(list[0].key, 's1-t8')
+  assert.ok(list.slice(1).every((task) => task.stage === 2))
 })
 
 test('每个岗位的任务数与工作簿分工一致', () => {
-  assert.equal(getTasksByRole('finance-lead').length, 6)
-  assert.equal(getTasksByRole('procurement').length, 8)
-  assert.equal(getTasksByRole('budget-performance').length, 5)
-  assert.equal(getTasksByRole('fund-risk').length, 4)
+  assert.equal(getTasksByRole('finance-lead').length, 8)
+  assert.equal(getTasksByRole('procurement').length, 9)
+  assert.equal(getTasksByRole('budget-performance').length, 7)
+  assert.equal(getTasksByRole('fund-risk').length, 5)
 })
 
 test('岗位任务顺序为第一份工作簿在前、第二份在后', () => {
@@ -148,4 +155,24 @@ test('每个任务都绑定了演算面板', () => {
   for (const task of tasks) {
     assert.ok(task.panel, `${task.key} 缺少 panel`)
   }
+})
+
+test('补充表任务保留 ABC 预算、B 方案审批与二次灾情关键口径', () => {
+  const abc = JSON.stringify(getTask('s1-t6'))
+  assert.ok(abc.includes('2816906'))
+  assert.ok(abc.includes('2909004'))
+  assert.ok(abc.includes('4278517.5'))
+
+  const approval = JSON.stringify(getTask('s1-t7'))
+  assert.ok(approval.includes('125.82%'))
+  assert.ok(approval.includes('2,909,004'))
+  assert.ok(approval.includes('III级'))
+
+  const wave = getTask('s1-t8')
+  assert.deepEqual([...wave.roles].sort(), [...roleIds].sort())
+  const text = JSON.stringify(wave)
+  assert.ok(text.includes('258517.50') || text.includes('258,517.50'))
+  assert.ok(text.includes('93.96%'))
+  assert.ok(text.includes('甲3'))
+  assert.ok(text.includes('甲6'))
 })

@@ -3,9 +3,12 @@ import test from 'node:test'
 
 import { insuranceProducts } from '../src/data/insurance.js'
 import { disasterGrids } from '../src/data/costDriver.js'
+import { abcPlans } from '../src/data/abcBudget.js'
 import { PLAN_C_BUDGET_CAP, splitModel } from '../src/data/procurement.js'
 import { getInsuranceDecision, scoreInsurance, standardizeScores } from '../src/domain/insurance.js'
 import { calculateBudgetSummary, calculateGridBudgets } from '../src/domain/costDriver.js'
+import { coverageRate, summarizeAbcPlans, unitBenefitCost } from '../src/domain/abcBudget.js'
+import { bCoverage, cResilience, gridFoodShifts } from '../src/domain/emergencyUpdate.js'
 import {
   calculateBudgetOccupation,
   calculateChangeImpact,
@@ -189,4 +192,49 @@ test('合同变更后的执行总额与预备费复现任务5第十三步、任�
   near(impact.contingencyLeft, 366250)
   near(impact.averageUnitCost, 854.5)
   near(impact.goodsUnitCost, 848.5)
+})
+
+// ------------------------------------ ABC三受灾等级预算计算表.xlsx
+
+test('ABC 三方案总预算与单位受益成本复现计算表', () => {
+  const [a, b, c] = summarizeAbcPlans()
+  assert.equal(a.total, 2816906)
+  assert.equal(b.total, 2909004)
+  assert.equal(c.total, 4278517.5)
+  near(unitBenefitCost(a.total, a.people), 402.415142857143)
+  near(b.unitCost, 415.572)
+  near(c.unitCost, 528.212037037037)
+  assert.equal(b.vsA, 92098)
+  near(c.vsPrev, 1369513.5)
+  near(c.vsA, 1461611.5)
+  near(b.growth, 0.0326947367075792)
+  near(c.growth, 0.470784330306868)
+})
+
+test('B 方案资金覆盖率复现阶段一补充表 3,660,000 ÷ 2,909,004', () => {
+  const result = bCoverage()
+  near(result.percent, 125.82, 0.01)
+  assert.equal(result.gap, 0)
+  assert.equal(result.status.level, 'green')
+})
+
+test('C 方案资金韧性复现 93.96% 覆盖率与 258,517.50 缺口', () => {
+  const result = cResilience()
+  near(result.percent, 93.96, 0.01)
+  near(result.bufferPercent, 8.79, 0.01)
+  near(result.gap, 258517.5)
+  assert.equal(result.status.level, 'red')
+  near(coverageRate(4020000, abcPlans[2].total) * 100, 93.96, 0.01)
+})
+
+test('甲3、甲6 食品预算增量复现 150000 与 122500', () => {
+  const { jia3, jia6 } = gridFoodShifts()
+  assert.equal(jia3.personDays, 10500)
+  assert.equal(jia3.food, 262500)
+  assert.equal(jia3.oldFood, 112500)
+  assert.equal(jia3.increment, 150000)
+  assert.equal(jia6.personDays, 8500)
+  assert.equal(jia6.food, 212500)
+  assert.equal(jia6.oldFood, 90000)
+  assert.equal(jia6.increment, 122500)
 })

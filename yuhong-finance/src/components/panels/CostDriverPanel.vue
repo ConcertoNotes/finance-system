@@ -2,10 +2,11 @@
 // 应急预算测算系统。学生登录后逐级点开菜单，在功能页载入灾情、配置参数并回写测算结果。
 import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
-import SystemShell from '../system/SystemShell.vue'
+import StepBar from '../system/StepBar.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import { useFormPersist } from '../../composables/useFormPersist.js'
 import {
+  COST_DRIVER_WORKBOOK,
   budgetParameters,
   coreFormulas,
   disasterGrids,
@@ -17,48 +18,17 @@ import { calculateBudgetSummary, calculateCostComposition, calculateGridBudgets 
 import { money, num, percent } from '../../domain/format.js'
 
 const PAGES = ['grids', 'params', 'convert', 'equipment', 'summary']
+const STEPS = [
+  { id: 'grids', label: '灾情载入' },
+  { id: 'params', label: '保障标准' },
+  { id: 'convert', label: '动因转换' },
+  { id: 'equipment', label: '保险设备' },
+  { id: 'summary', label: '预算汇总' },
+]
 const flow = useTaskFlow('s1-t5', PAGES)
 const store = useFormPersist('s1-t5')
 
-const menu = [
-  {
-    id: 'm-budget',
-    label: '预算管理',
-    children: [
-      {
-        id: 'm-budget-prep',
-        label: '应急预算编制',
-        children: [{ id: 'grids', label: '灾情数据载入' }],
-      },
-    ],
-  },
-  {
-    id: 'm-base',
-    label: '基础设置',
-    children: [
-      {
-        id: 'm-base-param',
-        label: '预算参数',
-        children: [{ id: 'params', label: '保障标准配置' }],
-      },
-    ],
-  },
-  {
-    id: 'm-calc',
-    label: '预算测算',
-    children: [
-      { id: 'convert', label: '成本动因转换' },
-      { id: 'equipment', label: '保险及设备预算' },
-      { id: 'summary', label: '预算汇总生成' },
-    ],
-  },
-]
-
-const leafLabels = {}
-function collectLeaves(nodes) {
-  nodes.forEach((node) => (node.children ? collectLeaves(node.children) : (leafLabels[node.id] = node.label)))
-}
-collectLeaves(menu)
+const leafLabels = Object.fromEntries(STEPS.map((step) => [step.id, step.label]))
 
 const gridFields = [
   { key: 'relocated', label: '转移安置人数', unit: '人', step: '1' },
@@ -70,9 +40,10 @@ const gridFields = [
 const paramKeys = ['shelterDays', 'foodRate', 'waterRate', 'tentPrice', 'tentCapacity', 'quiltPrice', 'specialCare', 'transportRate', 'vehiclesPerGrid']
 const paramCells = budgetParameters.filter((p) => paramKeys.includes(p.key))
 
-const activeId = ref('')
-const workbookName = ref('')
-const dataStatus = ref('')
+const doneSteps = computed(() => flow.done.value)
+const activeId = ref(PAGES.find((id) => !flow.isDone(id)) || 'grids')
+const workbookName = ref(COST_DRIVER_WORKBOOK)
+const dataStatus = ref('待导入')
 const grids = reactive(disasterGrids.map((grid) => ({
   id: grid.id,
   relocated: '',
@@ -114,6 +85,11 @@ function snapshot() {
   return { grids, paramState, workbookName, dataStatus }
 }
 
+function goNext(id) {
+  const index = PAGES.indexOf(id)
+  if (index >= 0 && index < PAGES.length - 1) activeId.value = PAGES[index + 1]
+}
+
 function run(id, check) {
   const message = check ? check() : ''
   if (message) {
@@ -123,6 +99,7 @@ function run(id, check) {
   error.value = ''
   store.persist(snapshot())
   flow.complete(id)
+  goNext(id)
 }
 
 function checkGrids() {
@@ -156,15 +133,30 @@ function checkSummary() {
   return `还有 ${pendingPages.value.length} 个功能页未办理（${names.join('、')}），无法生成汇总`
 }
 
+function downloadUrl(file) {
+  return `${import.meta.env.BASE_URL}workbooks/${encodeURIComponent(file)}`
+}
+
 function restoreHistoric() {
   Object.assign(paramState, baseParams)
+}
+
+function importGrids() {
+  disasterGrids.forEach((src, index) => {
+    grids[index].relocated = src.relocated
+    grids[index].special = src.special
+    grids[index].distance = src.distance
+    grids[index].quilts = src.quilts
+  })
+  dataStatus.value = '已导入9网格灾情数据'
 }
 
 function resetAll() {
   flow.reset()
   store.clear()
-  workbookName.value = ''
-  dataStatus.value = ''
+  workbookName.value = COST_DRIVER_WORKBOOK
+  dataStatus.value = '待导入'
+  activeId.value = 'grids'
   grids.forEach((grid) => {
     grid.relocated = ''
     grid.special = ''
@@ -178,22 +170,22 @@ function resetAll() {
 
 <template>
   <PanelShell title="灾情数据成本动因转换" source="应急预算测算">
-    <SystemShell
-      system="应急预算测算系统"
-      operator="应急预算绩效岗"
-      login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
-      :menu="menu"
-      :completed="flow.done.value"
-      :error="error"
-      v-model:active-id="activeId"
-      @reset="resetAll"
-    >
-      <template #default="{ leaf }">
-        <!-- 预算管理 → 应急预算编制 → 灾情数据载入 -->
-        <template v-if="leaf === 'grids'">
+    <div class="task-flow">
+      <StepBar :steps="STEPS" :active-id="activeId" :completed="doneSteps" @select="activeId = $event" />
+      <p v-if="error" class="sys-toast danger">{{ error }}</p>
+      <div class="task-flow-page">
+        <template v-if="activeId === 'grids'">
           <div class="sys-toolbar">
+            <button type="button" class="secondary-button" @click="importGrids">点击导入</button>
             <button type="button" class="primary-button"
               @click="run('grids', checkGrids)">载入灾情数据</button>
+          </div>
+          <div class="download-card">
+            <div>
+              <strong>下载「灾情数据转换为成本动因计算表」</strong>
+              <p>弄到平台，学生可以下载。点击导入后平台呈现测算效果。</p>
+            </div>
+            <a class="primary-button" :href="downloadUrl(COST_DRIVER_WORKBOOK)" :download="COST_DRIVER_WORKBOOK">下载计算表</a>
           </div>
           <div class="form-row">
             <label class="form-item">
@@ -235,7 +227,7 @@ function resetAll() {
         </template>
 
         <!-- 基础设置 → 预算参数 → 保障标准配置 -->
-        <template v-else-if="leaf === 'params'">
+        <template v-else-if="activeId === 'params'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="restoreHistoric">恢复历史采购价</button>
@@ -267,7 +259,7 @@ function resetAll() {
         </template>
 
         <!-- 预算测算 → 成本动因转换 -->
-        <template v-else-if="leaf === 'convert'">
+        <template v-else-if="activeId === 'convert'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="run('convert')">执行转换</button>
@@ -317,7 +309,7 @@ function resetAll() {
         </template>
 
         <!-- 预算测算 → 保险及设备预算 -->
-        <template v-else-if="leaf === 'equipment'">
+        <template v-else-if="activeId === 'equipment'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="run('equipment', checkEquipment)">测算</button>
@@ -383,7 +375,7 @@ function resetAll() {
         </template>
 
         <!-- 预算测算 → 预算汇总生成 -->
-        <template v-else-if="leaf === 'summary'">
+        <template v-else-if="activeId === 'summary'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="run('summary', checkSummary)">生成汇总</button>
@@ -416,7 +408,7 @@ function resetAll() {
             <p class="sys-toast">{{ executionNote }}</p>
           </template>
         </template>
-      </template>
-    </SystemShell>
+      </div>
+    </div>
   </PanelShell>
 </template>

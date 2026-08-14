@@ -9,6 +9,16 @@ import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import { useFormPersist } from '../../composables/useFormPersist.js'
 
 const PAGES = ['load-data', 'quality-rule', 'disposal-rule', 'veto-rule', 'evidence-rule', 'detect-run', 'report-manage', 'share-publish']
+const STEPS = [
+  { id: 'load-data', label: '载入数据' },
+  { id: 'quality-rule', label: '准入规则' },
+  { id: 'disposal-rule', label: '异常处置' },
+  { id: 'veto-rule', label: '否决规则' },
+  { id: 'evidence-rule', label: '规则依据' },
+  { id: 'detect-run', label: '执行判定' },
+  { id: 'report-manage', label: '校验单' },
+  { id: 'share-publish', label: '共享发布' },
+]
 const flow = useTaskFlow('s1-t3', PAGES)
 const store = useFormPersist('s1-t3')
 
@@ -68,7 +78,12 @@ const autoRead = [
   { label: '基础信息匹配结果', value: '9 / 9 网格基础信息匹配一致' },
 ]
 
-const rule = reactive({ name: '', threshold: '', method: '' })
+const RULE_NAME_OPTIONS = ['灾情数据预算模型准入规则', '支付合规准入规则']
+const THRESHOLD_OPTIONS = [90, 95, 100]
+const NOTE_OPTIONS = ['项目内部数据可用性门槛，不作为法律合规标准。', '作为法律合规强制标准。']
+const COLLECT_TIME_OPTIONS = ['灾后 0 小时初始数据', '灾后 24 小时复核数据', '灾后 72 小时汇总数据']
+
+const rule = reactive({ name: '', threshold: '', method: '', note: '', collectTime: '' })
 
 const fieldNames = ['网格编号', '受灾人数', '被困人数', '转移安置人数', '特殊人群数', '道路情况', '降雨量', '水位', '距仓库距离']
 const sourceNames = ['应急管理部门报送数据', '气象监测数据', '无人机巡航数据']
@@ -245,7 +260,7 @@ function resetAll() {
   flow.reset()
   store.clear()
   Object.assign(intake, { dataset: '', scene: '' })
-  Object.assign(rule, { name: '', threshold: '', method: '' })
+  Object.assign(rule, { name: '', threshold: '', method: '', note: '', collectTime: '' })
   fieldNames.forEach((n) => { fields[n] = false })
   sourceNames.forEach((n) => { crossSources[n] = false })
   disposalIds.forEach((id) => { disposalEnabled[id] = false })
@@ -269,6 +284,7 @@ function resetAll() {
       operator="财务主管统筹岗"
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"
@@ -326,8 +342,10 @@ function resetAll() {
               type="button"
               class="primary-button"
               @click="save('quality-rule', () => {
-                if (!rule.name.trim()) return '规则名称为必填项'
-                if (!filled(rule.threshold)) return '数据质量准入值为必填项'
+                if (!rule.name.trim()) return '请选择规则名称'
+                if (!filled(rule.threshold)) return '请选择数据质量准入值'
+                if (!rule.note) return '请选择门槛说明'
+                if (!rule.collectTime) return '请设置采集时间要求'
                 return ''
               })"
             >
@@ -337,14 +355,30 @@ function resetAll() {
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">规则名称</span>
-              <input v-model="rule.name" class="form-control" />
+              <select v-model="rule.name" class="form-control">
+                <option value="">请选择</option>
+                <option v-for="n in RULE_NAME_OPTIONS" :key="n">{{ n }}</option>
+              </select>
             </label>
             <label class="form-item">
               <span class="form-label required">数据质量准入值（%）</span>
-              <input v-model.number="rule.threshold" type="number" min="0" max="100" class="form-control" />
+              <select v-model.number="rule.threshold" class="form-control">
+                <option value="">请选择</option>
+                <option v-for="n in THRESHOLD_OPTIONS" :key="n" :value="n">{{ n }}</option>
+              </select>
             </label>
           </div>
-          <p class="calc-note">项目内部数据可用性门槛，不作为法律合规标准。</p>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label required">选项设置</span>
+              <select v-model="rule.note" class="form-control">
+                <option value="">请选择门槛说明</option>
+                <option v-for="n in NOTE_OPTIONS" :key="n">{{ n }}</option>
+              </select>
+            </label>
+            <div class="form-item" />
+          </div>
+          <p v-if="rule.note" class="calc-note">{{ rule.note }}</p>
 
           <div class="calc-subhead"><h3>指标一 · 数据完整率</h3></div>
           <p class="block-formula">完整率 = 已完整记录数 ÷ 应采集记录数 × 100%</p>
@@ -358,7 +392,17 @@ function resetAll() {
 
           <div class="calc-subhead"><h3>指标二 · 数据及时率</h3></div>
           <p class="block-formula">及时率 = 规定时间内完成采集记录数 ÷ 应采集记录数 × 100%</p>
-          <p class="calc-caption">采集时间要求：灾后 0 小时初始数据。及时率 ≥ {{ rule.threshold }}% → 通过；＜ {{ rule.threshold }}% → 退回复核。</p>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label required">采集时间要求</span>
+              <select v-model="rule.collectTime" class="form-control">
+                <option value="">请选择</option>
+                <option v-for="n in COLLECT_TIME_OPTIONS" :key="n">{{ n }}</option>
+              </select>
+            </label>
+            <div class="form-item" />
+          </div>
+          <p class="calc-caption">采集时间要求：{{ rule.collectTime || '请先设置' }}。及时率 ≥ {{ rule.threshold || '—' }}% → 通过；＜ {{ rule.threshold || '—' }}% → 退回复核。</p>
 
           <div class="calc-subhead"><h3>指标三 · 数据准确性校验</h3></div>
           <div class="form-row">

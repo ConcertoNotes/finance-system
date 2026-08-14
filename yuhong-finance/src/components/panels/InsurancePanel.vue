@@ -3,10 +3,11 @@
 // 菜单路径需逐级点开，学生进入功能页填表保存后，结果写回当前页。
 import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
-import SystemShell from '../system/SystemShell.vue'
+import StepBar from '../system/StepBar.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import { useFormPersist } from '../../composables/useFormPersist.js'
 import {
+  INSURANCE_WORKBOOK,
   coverageTiers,
   insuranceCriteria,
   insuranceProducts,
@@ -15,48 +16,15 @@ import { buildScoreBreakdown, getInsuranceDecision, standardizeScores } from '..
 import { money, num } from '../../domain/format.js'
 
 const PAGES = ['quotes', 'rules', 'standard', 'weighted', 'decision']
+const STEPS = [
+  { id: 'quotes', label: '产品报价' },
+  { id: 'rules', label: '指标权重' },
+  { id: 'standard', label: '标准分' },
+  { id: 'weighted', label: '综合得分' },
+  { id: 'decision', label: '方案确定' },
+]
 const flow = useTaskFlow('s1-t4', PAGES)
 const store = useFormPersist('s1-t4')
-
-const menu = [
-  {
-    id: 'm-purchase',
-    label: '采购管理',
-    children: [
-      {
-        id: 'm-insure',
-        label: '保险管理',
-        children: [
-          {
-            id: 'm-compare',
-            label: '保险方案比选',
-            children: [{ id: 'quotes', label: '录入产品报价' }],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'm-base',
-    label: '基础设置',
-    children: [
-      {
-        id: 'm-score-rule',
-        label: '评分规则',
-        children: [{ id: 'rules', label: '指标权重配置' }],
-      },
-    ],
-  },
-  {
-    id: 'm-review',
-    label: '保险评审',
-    children: [
-      { id: 'standard', label: '标准分计算' },
-      { id: 'weighted', label: '加权综合得分' },
-      { id: 'decision', label: '方案确定与保费测算' },
-    ],
-  },
-]
 
 const quoteFields = [
   { key: 'premium', label: '保费', unit: '元/人', type: 'number', step: 10 },
@@ -81,27 +49,16 @@ const typeRule = {
 const FUND_SOURCE = '政府财政拨款保障资金'
 const fundSources = [FUND_SOURCE, '限定性社会捐赠', '非限定性社会捐赠', '其他合规项目资金']
 
-function blankProduct(src) {
-  return {
-    id: src.id,
-    name: src.name,
-    premium: '',
-    death: '',
-    disability: '',
-    medical: '',
-    deductible: '',
-    waiting: '',
-    coverage: '',
-    documents: '',
-    settlementDays: '',
-  }
+function filledProduct(src) {
+  return { ...src }
 }
 
-const activeId = ref('')
-const workbookName = ref('')
-const quoteCount = ref('')
-const products = reactive(insuranceProducts.map((item) => blankProduct(item)))
-const weights = reactive(Object.fromEntries(insuranceCriteria.map((c) => [c.key, ''])))
+const doneSteps = computed(() => flow.done.value)
+const activeId = ref(PAGES.find((id) => !flow.isDone(id)) || 'quotes')
+const workbookName = ref(INSURANCE_WORKBOOK)
+const quoteCount = ref(String(insuranceProducts.length))
+const products = reactive(insuranceProducts.map((item) => filledProduct(item)))
+const weights = reactive(Object.fromEntries(insuranceCriteria.map((c) => [c.key, c.weight * 100])))
 const headcount = ref('')
 const fundSource = ref('')
 const selected = ref('')
@@ -198,6 +155,11 @@ function tierProducts(tier) {
   return matched.length ? matched.map((item) => item.id).join('、') : '—'
 }
 
+function goNext(id) {
+  const index = PAGES.indexOf(id)
+  if (index >= 0 && index < PAGES.length - 1) activeId.value = PAGES[index + 1]
+}
+
 function save(id, check) {
   const message = check ? check() : ''
   if (message) {
@@ -207,6 +169,7 @@ function save(id, check) {
   error.value = ''
   store.persist(snapshot())
   flow.complete(id)
+  goNext(id)
 }
 
 function checkQuotes() {
@@ -234,13 +197,18 @@ function checkDecision() {
   return ''
 }
 
+function downloadUrl(file) {
+  return `${import.meta.env.BASE_URL}workbooks/${encodeURIComponent(file)}`
+}
+
 function resetAll() {
   flow.reset()
   store.clear()
-  workbookName.value = ''
-  quoteCount.value = ''
-  products.forEach((item, index) => Object.assign(item, blankProduct(insuranceProducts[index])))
-  insuranceCriteria.forEach((c) => { weights[c.key] = '' })
+  workbookName.value = INSURANCE_WORKBOOK
+  quoteCount.value = String(insuranceProducts.length)
+  products.forEach((item, index) => Object.assign(item, filledProduct(insuranceProducts[index])))
+  insuranceCriteria.forEach((c) => { weights[c.key] = c.weight * 100 })
+  activeId.value = 'quotes'
   headcount.value = ''
   fundSource.value = ''
   selected.value = ''
@@ -250,22 +218,21 @@ function resetAll() {
 
 <template>
   <PanelShell title="救援人员保险方案比较" source="保险方案评审">
-    <SystemShell
-      system="采购共享平台"
-      operator="采购成本保障岗"
-      login-hint="登录后从左侧功能菜单逐级进入保险比选功能页。"
-      :menu="menu"
-      :completed="flow.done.value"
-      :error="error"
-      v-model:active-id="activeId"
-      @reset="resetAll"
-    >
-      <template #default="{ leaf }">
-        <!-- 采购管理 → 保险管理 → 保险方案比选 → 录入产品报价 -->
-        <template v-if="leaf === 'quotes'">
+    <div class="task-flow open-tables">
+      <StepBar :steps="STEPS" :active-id="activeId" :completed="doneSteps" @select="activeId = $event" />
+      <p v-if="error" class="sys-toast danger">{{ error }}</p>
+      <div class="task-flow-page">
+        <template v-if="activeId === 'quotes'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="save('quotes', checkQuotes)">保存</button>
+          </div>
+          <div class="download-card">
+            <div>
+              <strong>下载「保险方案综合评分计算表」</strong>
+              <p>弄到平台，学生可以下载。打开任务即可对照三家报价表办理。</p>
+            </div>
+            <a class="primary-button" :href="downloadUrl(INSURANCE_WORKBOOK)" :download="INSURANCE_WORKBOOK">下载计算表</a>
           </div>
           <div class="form-row">
             <label class="form-item">
@@ -278,7 +245,7 @@ function resetAll() {
             </label>
           </div>
           <div class="score-table-wrap">
-            <table class="calc-table compact">
+            <table class="calc-table compact center-text">
               <thead>
                 <tr>
                   <th style="width: 150px">对比指标</th>
@@ -307,7 +274,7 @@ function resetAll() {
           <template v-if="flow.isDone('quotes')">
             <p class="sys-toast">{{ products.length }} 家保险产品报价导入成功，共 {{ quoteFields.length }} 项对比指标。</p>
             <div class="score-table-wrap">
-              <table class="calc-table compact">
+              <table class="calc-table compact center-text">
                 <thead>
                   <tr>
                     <th style="width: 150px">对比指标</th>
@@ -330,12 +297,12 @@ function resetAll() {
         </template>
 
         <!-- 基础设置 → 评分规则 → 指标权重配置 -->
-        <template v-else-if="leaf === 'rules'">
+        <template v-else-if="activeId === 'rules'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="save('rules', checkRules)">保存</button>
           </div>
-          <table class="calc-table compact">
+          <table class="calc-table compact center-text">
             <thead>
               <tr>
                 <th>评分指标</th>
@@ -370,7 +337,7 @@ function resetAll() {
           </table>
 
           <p class="form-desc">洪涝救援承保范围分档赋值表</p>
-          <table class="calc-table compact">
+          <table class="calc-table compact center-text">
             <thead>
               <tr><th>承保情况</th><th style="width: 96px">标准分</th><th style="width: 120px">对应报价</th></tr>
             </thead>
@@ -404,7 +371,7 @@ function resetAll() {
         </template>
 
         <!-- 保险评审 → 标准分计算 -->
-        <template v-else-if="leaf === 'standard'">
+        <template v-else-if="activeId === 'standard'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="save('standard')">保存</button>
@@ -417,7 +384,7 @@ function resetAll() {
           <template v-if="flow.isDone('standard')">
             <p class="sys-toast">3 家方案 × 8 项指标标准分计算完成。</p>
             <div class="score-table-wrap">
-              <table class="calc-table">
+              <table class="calc-table center-text">
                 <thead>
                   <tr>
                     <th>保险公司</th>
@@ -452,7 +419,7 @@ function resetAll() {
         </template>
 
         <!-- 保险评审 → 加权综合得分 -->
-        <template v-else-if="leaf === 'weighted'">
+        <template v-else-if="activeId === 'weighted'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="save('weighted')">保存</button>
@@ -462,7 +429,7 @@ function resetAll() {
           </ul>
           <template v-if="flow.isDone('weighted')">
             <div class="score-table-wrap">
-              <table class="calc-table">
+              <table class="calc-table center-text">
                 <thead>
                   <tr>
                     <th>保险公司</th>
@@ -493,7 +460,7 @@ function resetAll() {
         </template>
 
         <!-- 保险评审 → 方案确定与保费测算 -->
-        <template v-else-if="leaf === 'decision'">
+        <template v-else-if="activeId === 'decision'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="save('decision', checkDecision)">保存</button>
@@ -524,7 +491,7 @@ function resetAll() {
               <div class="field-row"><dt>总保费</dt><dd>{{ money(Number(decision.totalPremium) || 0, 0) }} 元</dd></div>
               <div class="field-row"><dt>支付资金来源</dt><dd>{{ fundSource }}</dd></div>
             </dl>
-            <table class="calc-table compact">
+            <table class="calc-table compact center-text">
               <thead>
                 <tr>
                   <th>对比方案</th>
@@ -545,7 +512,7 @@ function resetAll() {
             <p class="sys-toast">{{ decision.conclusion }}</p>
           </template>
         </template>
-      </template>
-    </SystemShell>
+      </div>
+    </div>
   </PanelShell>
 </template>

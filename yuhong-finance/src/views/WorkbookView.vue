@@ -3,12 +3,15 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { INSURANCE_WORKBOOK, insuranceCriteria, insuranceProducts } from '../data/insurance.js'
 import { COST_DRIVER_WORKBOOK, budgetParameters, disasterGrids } from '../data/costDriver.js'
+import { ABC_WORKBOOK, abcPlans, compareConclusions } from '../data/abcBudget.js'
 import { getInsuranceDecision } from '../domain/insurance.js'
 import { calculateBudgetSummary } from '../domain/costDriver.js'
+import { summarizeAbcPlans } from '../domain/abcBudget.js'
 import { money, num } from '../domain/format.js'
 
 const router = useRouter()
-const imported = ref({ insurance: false, costDriver: false })
+const imported = ref({ insurance: false, costDriver: false, abcBudget: false })
+const abcRows = computed(() => summarizeAbcPlans())
 
 const decision = computed(() => getInsuranceDecision())
 const summary = computed(() => calculateBudgetSummary())
@@ -30,6 +33,14 @@ const workbooks = [
     sheets: ['成本动因转换'],
     blocks: ['预算参数表', '9网格灾情', '9网格成本动因测算', '保险及设备预算', '预算汇总', '成本构成汇总'],
   },
+  {
+    id: 'abcBudget',
+    file: ABC_WORKBOOK,
+    title: 'ABC三受灾等级预算计算表',
+    usedBy: { label: '编制A、B、C三受灾等级预算', roleId: 'budget-performance', taskKey: 's1-t6' },
+    sheets: ['ABC三方案预算'],
+    blocks: ['三方案基础参数', '预算测算与关键指标', '保障内容对比', '预算增量来源'],
+  },
 ]
 
 function downloadUrl(file) {
@@ -43,7 +54,7 @@ function downloadUrl(file) {
       <div class="page-title-main">
         <h1 class="page-title">补充数据表</h1>
         <p class="page-subtitle">
-          两份计算表分别是保险方案比较与成本动因转换的数据底稿。工作簿原文标注「弄到平台，学生可以下载」「点击导入，点完平台呈现效果」，此处提供下载与导入演示。
+          三份计算表分别是保险方案比较、成本动因转换与 A/B/C 三受灾等级预算的数据底稿。工作簿原文标注「弄到平台，学生可以下载」「点击导入，点完平台呈现效果」，此处提供下载与导入演示。
         </p>
       </div>
     </header>
@@ -173,6 +184,53 @@ function downloadUrl(file) {
             <div class="stat-cell">
               <span class="stat-label">总预算需求</span>
               <strong class="stat-value accent">{{ money(summary.totalBudget, 0) }} 元</strong>
+            </div>
+          </div>
+        </template>
+
+        <template v-if="imported[book.id] && book.id === 'abcBudget'">
+          <div class="calc-subhead"><h3>导入结果 · ABC三方案预算</h3></div>
+          <div class="score-table-wrap">
+            <table class="calc-table compact">
+              <thead>
+                <tr><th>指标</th><th>A方案</th><th>B方案</th><th>C方案</th><th>结论</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">总预算（元）</th>
+                  <td>{{ money(abcPlans[0].total, 0) }}</td>
+                  <td>{{ money(abcPlans[1].total, 0) }}</td>
+                  <td>{{ money(abcPlans[2].total, 1) }}</td>
+                  <td>{{ compareConclusions.total }}</td>
+                </tr>
+                <tr>
+                  <th scope="row">安置期（天）</th>
+                  <td>{{ abcPlans[0].days }}</td>
+                  <td>{{ abcPlans[1].days }}</td>
+                  <td>{{ abcPlans[2].days }}</td>
+                  <td>{{ compareConclusions.days }}</td>
+                </tr>
+                <tr>
+                  <th scope="row">覆盖人数（人）</th>
+                  <td>{{ num(abcPlans[0].people, 0) }}</td>
+                  <td>{{ num(abcPlans[1].people, 0) }}</td>
+                  <td>{{ num(abcPlans[2].people, 0) }}</td>
+                  <td>{{ compareConclusions.people }}</td>
+                </tr>
+                <tr>
+                  <th scope="row">单位受益成本（元/人）</th>
+                  <td>{{ num(abcRows[0].unitCost, 2) }}</td>
+                  <td>{{ num(abcRows[1].unitCost, 3) }}</td>
+                  <td>{{ num(abcRows[2].unitCost, 2) }}</td>
+                  <td>{{ compareConclusions.unitCost }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="stat-grid">
+            <div v-for="row in abcRows" :key="row.id" class="stat-cell">
+              <span class="stat-label">{{ row.name }} · {{ row.level }}</span>
+              <strong class="stat-value">{{ money(row.total, row.id === 'C' ? 1 : 0) }} 元</strong>
             </div>
           </div>
         </template>

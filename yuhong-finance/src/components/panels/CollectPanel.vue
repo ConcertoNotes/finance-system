@@ -4,6 +4,7 @@
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
+import CodeEditor from '../system/CodeEditor.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import { useFormPersist } from '../../composables/useFormPersist.js'
 import { disasterGrids } from '../../data/costDriver.js'
@@ -21,8 +22,44 @@ const PAGES = [
   'run-task',
   'data-export',
 ]
+const STEPS = [
+  { id: 'new-task', label: '新建任务' },
+  { id: 'add-source', label: '添加数据源' },
+  { id: 'add-field', label: '字段映射' },
+  { id: 'python-node', label: '采集脚本' },
+  { id: 'extract-rule', label: '提取规则' },
+  { id: 'data-grade', label: '分级分类' },
+  { id: 'iqr-rule', label: '异常监测' },
+  { id: 'quality-rule', label: '质量规则' },
+  { id: 'run-task', label: '运行采集' },
+  { id: 'data-export', label: '数据导出' },
+]
 const flow = useTaskFlow('s1-t2', PAGES)
 const store = useFormPersist('s1-t2')
+
+const DEFAULT_PYTHON = `# 多源洪涝数据自动采集
+import json
+from datetime import datetime
+
+SOURCES = [
+    {"code": "DS01", "name": "应急管理局", "api": "/emergency/grids"},
+    {"code": "DS02", "name": "气象局", "api": "/weather/realtime"},
+    {"code": "DS03", "name": "无人机巡航", "api": "/uav/review"},
+    {"code": "DS04", "name": "御洪星", "api": "/yuhongxing/demand"},
+]
+
+def collect(source):
+    print(f"[{datetime.now():%H:%M:%S}] 连接 {source['name']} {source['api']}")
+    return {"status": "ok", "grids": [f"甲{i}" for i in range(1, 10)]}
+
+def main():
+    for src in SOURCES:
+        result = collect(src)
+        print(f"{src['name']}：采集成功 {len(result['grids'])}/9")
+
+if __name__ == "__main__":
+    main()
+`
 
 const menu = [
   {
@@ -99,7 +136,7 @@ const dataSources = [
     short: '应急管理局',
     name: '应急管理局灾情数据',
     meta: '数据源类型：API接口 ｜ 数据更新：实时 ｜ 接口状态：已授权',
-    content: '受灾人数、被困人数、转移安置人数、特殊人群、道路中断情况',
+    items: ['受灾人数', '被困人数', '转移安置人数', '特殊人群', '道路中断情况'],
     collect: '应急管理局数据：采集成功',
   },
   {
@@ -108,7 +145,7 @@ const dataSources = [
     short: '气象局',
     name: '气象监测数据',
     meta: '数据源类型：API接口 ｜ 更新频率：实时 ｜ 数据权限：授权访问',
-    content: '累计降雨量、实时水位',
+    items: ['累计降雨量', '实时水位'],
     collect: '气象局数据：采集成功',
   },
   {
@@ -117,7 +154,7 @@ const dataSources = [
     short: '无人机平台',
     name: '无人机巡航数据',
     meta: '更新方式：巡航后自动上传 ｜ 数据用途：灾情数据交叉验证',
-    content: '网格编号、巡航时间、灾情影像、道路状态、现场灾情复核结果',
+    items: ['网格编号', '巡航时间', '灾情影像', '道路状态', '现场灾情复核结果'],
     collect: '无人机数据：采集成功',
   },
   {
@@ -126,7 +163,7 @@ const dataSources = [
     short: '御洪星',
     name: '御洪星灾区需求数据',
     meta: '数据类型：语音转译/结构化数据 ｜ 数据状态：实时同步',
-    content: '网格编号、需求物资、紧急程度、上报时间',
+    items: ['网格编号', '需求物资', '紧急程度', '上报时间'],
     collect: '御洪星数据：同步成功',
   },
 ]
@@ -155,13 +192,21 @@ const extractDimensions = [
 
 const extractCheckpoints = [25, 52, 78, 100]
 
+const ACCESS_OPTIONS = [
+  '查看全部',
+  '授权读取、分析',
+  '授权读取、维护采集任务',
+  '按业务需要读取',
+  '采集、识别、风险提示',
+  '禁止访问',
+]
 const accessRules = [
-  { role: '财务主管统筹岗', access: '查看全部', denied: false },
-  { role: '应急预算绩效岗', access: '授权读取、分析', denied: false },
-  { role: '采购成本保障岗', access: '授权读取、维护采集任务', denied: false },
-  { role: '资金核算风控岗', access: '按业务需要读取', denied: false },
-  { role: '数字人御洪星', access: '采集、识别、风险提示', denied: false },
-  { role: '非授权用户', access: '禁止访问', denied: true },
+  { role: '财务主管统筹岗', preset: '查看全部' },
+  { role: '应急预算绩效岗', preset: '授权读取、分析' },
+  { role: '采购成本保障岗', preset: '授权读取、维护采集任务' },
+  { role: '资金核算风控岗', preset: '按业务需要读取' },
+  { role: '数字人御洪星', preset: '采集、识别、风险提示' },
+  { role: '非授权用户', preset: '禁止访问' },
 ]
 
 const guardItems = ['用户身份认证', '数据访问日志', '操作留痕', '下载权限控制', '异常访问预警']
@@ -186,14 +231,26 @@ const runtimeRequired = [
   { id: 'iqr-rule', label: '异常监测' },
 ]
 
+const DATASET_OPTIONS = ['洪涝应急救援9网格数据集', '灾情原始采集表', '灾情清洗数据表']
+const IQR_NAME_OPTIONS = ['降雨量异常波动监测', '水位异常波动监测']
+const IQR_FIELD_OPTIONS = ['累计降雨量', '实时水位']
+const IQR_METHOD_OPTIONS = ['IQR 四分位距', '3σ 标准差']
+const RAINFALL_OPTIONS = [76, 80, 86, 88, 92, 94, 98, 105, 148, 156]
+const KNOWN_RAINFALL = { 甲1: 86, 甲2: 92, 甲3: 156, 甲4: 98, 甲5: 105, 甲6: 148, 甲7: 88, 甲8: 80, 甲9: 94 }
+
 const connected = reactive(Object.fromEntries(dataSources.map((s) => [s.code, false])))
+const sourceItems = reactive(Object.fromEntries(
+  dataSources.flatMap((s) => s.items.map((item) => [`${s.code}:${item}`, false])),
+))
 const fieldRows = reactive(fields.map(() => ({ name: '', code: '', type: '', source: '' })))
-const fieldMeta = reactive({ primaryKey: '', uniqueConstraint: '' })
-const pythonNode = reactive({ name: '', code: '' })
+const pkOn = reactive(Object.fromEntries(fields.map((f) => [f[1], false])))
+const uniqueOn = reactive(Object.fromEntries(fields.map((f) => [f[1], false])))
+const pythonNode = reactive({ name: '多源洪涝数据自动采集', code: DEFAULT_PYTHON })
 const dims = reactive(Object.fromEntries(extractDimensions.map((d) => [d.name, false])))
-const dimFields = reactive(Object.fromEntries(extractDimensions.map((d) => [d.name, ''])))
+const dimFields = reactive(Object.fromEntries(extractDimensions.map((d) => [d.name, d.fields])))
 const guards = reactive(Object.fromEntries(guardItems.map((n) => [n, false])))
 const dataGradeForm = reactive({ dataset: '', level: '' })
+const accessChoice = reactive(Object.fromEntries(accessRules.map((r) => [r.role, ''])))
 const iqrForm = reactive({ name: '', field: '', method: '' })
 const rainfall = reactive(rainfallGrids.map((grid) => ({ grid, value: '' })))
 const rules = reactive(Object.fromEntries(qualityRules.map((r) => [r.id, false])))
@@ -206,16 +263,38 @@ const extracting = ref(false)
 const extractProgress = ref(0)
 let extractTimer = null
 
+const running = ref(false)
+const runStep = ref(0)
+const RUN_SOURCE = dataSources.length
+const RUN_GRID = disasterGrids.length
+const RUN_STATUS = RUN_SOURCE + RUN_GRID + 1
+const RUN_EXPORT = RUN_STATUS + 1
+let runTimer = null
+
+const shownSources = computed(() => {
+  if (running.value) return dataSources.slice(0, Math.min(runStep.value, RUN_SOURCE))
+  return flow.isDone('run-task') ? dataSources : []
+})
+const shownGrids = computed(() => {
+  if (running.value) return disasterGrids.slice(0, Math.max(0, Math.min(runStep.value - RUN_SOURCE, RUN_GRID)))
+  return flow.isDone('run-task') ? disasterGrids : []
+})
+const showRunStatus = computed(() => running.value ? runStep.value >= RUN_STATUS : flow.isDone('run-task'))
+const showRunExport = computed(() => running.value ? runStep.value >= RUN_EXPORT : flow.isDone('run-task'))
+
 store.restore({
   taskForm,
   connected,
+  sourceItems,
   fieldRows,
-  fieldMeta,
+  pkOn,
+  uniqueOn,
   pythonNode,
   dims,
   dimFields,
   guards,
   dataGradeForm,
+  accessChoice,
   iqrForm,
   rainfall,
   rules,
@@ -231,7 +310,7 @@ const chosenDims = computed(() => extractDimensions.filter((d) => dims[d.name]))
 const enabledGuards = computed(() => guardItems.filter((n) => guards[n]))
 const enabledRules = computed(() => qualityRules.filter((r) => rules[r.id]))
 const chosenExports = computed(() => exportItems.filter((n) => exportKeeps[n]))
-const collectedGrids = computed(() => (flow.isDone('run-task') ? disasterGrids.map((g) => g.id) : []))
+const collectedGrids = computed(() => shownGrids.value.map((g) => g.id))
 const runtimeMissing = computed(() => runtimeRequired.filter((item) => !flow.isDone(item.id)))
 const pendingPages = computed(() => PAGES.filter((p) => p !== 'data-export' && !flow.isDone(p)))
 
@@ -279,13 +358,16 @@ function snapshot() {
   return {
     taskForm,
     connected,
+    sourceItems,
     fieldRows,
-    fieldMeta,
+    pkOn,
+    uniqueOn,
     pythonNode,
     dims,
     dimFields,
     guards,
     dataGradeForm,
+  accessChoice,
     iqrForm,
     rainfall,
     rules,
@@ -295,6 +377,34 @@ function snapshot() {
     syntaxChecked,
     extractProgress,
   }
+}
+
+function sourceChecked(src) {
+  return src.items.filter((item) => sourceItems[`${src.code}:${item}`])
+}
+
+function oneClickMatch() {
+  fields.forEach((field, index) => {
+    fieldRows[index].name = field[0]
+    fieldRows[index].code = field[1]
+    fieldRows[index].type = field[2]
+    fieldRows[index].source = field[3]
+  })
+  Object.keys(pkOn).forEach((code) => { pkOn[code] = code === 'GRID_ID' })
+  Object.keys(uniqueOn).forEach((code) => { uniqueOn[code] = code === 'GRID_ID' || code === 'COLLECT_TIME' })
+  error.value = ''
+}
+
+function fillKnownRainfall() {
+  rainfall.forEach((item) => { item.value = KNOWN_RAINFALL[item.grid] ?? '' })
+}
+
+function stopRun() {
+  if (runTimer) {
+    clearInterval(runTimer)
+    runTimer = null
+  }
+  running.value = false
 }
 
 function save(id, check) {
@@ -309,6 +419,11 @@ function save(id, check) {
 }
 
 function testSource(code) {
+  const src = dataSources.find((item) => item.code === code)
+  if (src && sourceChecked(src).length !== src.items.length) {
+    error.value = `${src.name} 请先勾选全部数据内容`
+    return
+  }
   connected[code] = true
   error.value = ''
 }
@@ -342,16 +457,49 @@ function startExtract() {
 }
 
 function securityError() {
+  if (!dataGradeForm.dataset.trim()) return '请选择数据集'
   if (!dataGradeForm.level.trim()) return '数据级别为必填项'
+  const unset = accessRules.find((row) => !accessChoice[row.role])
+  if (unset) return `请为${unset.role}选择访问规则`
+  const mismatch = accessRules.find((row) => accessChoice[row.role] !== row.preset)
+  if (mismatch) return `${mismatch.role} 的访问规则应为「${mismatch.preset}」`
   if (enabledGuards.value.length < guardItems.length) {
     return `还有 ${guardItems.length - enabledGuards.value.length} 项安全控制未勾选`
   }
   return ''
 }
 
+function fieldMapError() {
+  if (fieldRows.some((row) => !row.name || !row.code)) return '请先一键匹配或填写全部字段'
+  if (!pkOn.GRID_ID) return '请勾选主键：网格编号 GRID_ID'
+  if (!uniqueOn.GRID_ID || !uniqueOn.COLLECT_TIME) return '请勾选唯一性约束：网格编号 + 采集时间'
+  return ''
+}
+
 function runtimeError() {
   if (!runtimeMissing.value.length) return ''
   return `采集任务尚未就绪：${runtimeMissing.value.map((item) => item.label).join('、')} 未配置完成`
+}
+
+function startRun() {
+  if (running.value) return
+  const message = runtimeError()
+  if (message) {
+    error.value = message
+    return
+  }
+  error.value = ''
+  stopRun()
+  running.value = true
+  runStep.value = 0
+  runTimer = setInterval(() => {
+    runStep.value += 1
+    if (runStep.value >= RUN_EXPORT) {
+      stopRun()
+      store.persist(snapshot())
+      flow.complete('run-task')
+    }
+  }, 520)
 }
 
 function exportError() {
@@ -385,20 +533,23 @@ function resetAll() {
     state: '',
   })
   dataSources.forEach((s) => { connected[s.code] = false })
+  Object.keys(sourceItems).forEach((k) => { sourceItems[k] = false })
   fieldRows.forEach((row) => {
     row.name = ''
     row.code = ''
     row.type = ''
     row.source = ''
   })
-  Object.assign(fieldMeta, { primaryKey: '', uniqueConstraint: '' })
-  Object.assign(pythonNode, { name: '', code: '' })
+  Object.keys(pkOn).forEach((code) => { pkOn[code] = false })
+  Object.keys(uniqueOn).forEach((code) => { uniqueOn[code] = false })
+  Object.assign(pythonNode, { name: '多源洪涝数据自动采集', code: DEFAULT_PYTHON })
   extractDimensions.forEach((d) => {
     dims[d.name] = false
-    dimFields[d.name] = ''
+    dimFields[d.name] = d.fields
   })
   guardItems.forEach((n) => { guards[n] = false })
   Object.assign(dataGradeForm, { dataset: '', level: '' })
+  accessRules.forEach((row) => { accessChoice[row.role] = '' })
   Object.assign(iqrForm, { name: '', field: '', method: '' })
   rainfall.forEach((item) => { item.value = '' })
   qualityRules.forEach((r) => {
@@ -410,11 +561,17 @@ function resetAll() {
   exportItems.forEach((n) => { exportKeeps[n] = false })
   syntaxChecked.value = false
   stopExtract()
+  stopRun()
   extractProgress.value = 0
+  runStep.value = 0
+  running.value = false
   error.value = ''
 }
 
-onBeforeUnmount(stopExtract)
+onBeforeUnmount(() => {
+  stopExtract()
+  stopRun()
+})
 </script>
 
 <template>
@@ -424,6 +581,7 @@ onBeforeUnmount(stopExtract)
       operator="采购成本保障岗"
       login-hint="登录后从左侧功能菜单逐级点开，进入数据采集中心对应功能页办理业务。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"
@@ -499,7 +657,12 @@ onBeforeUnmount(stopExtract)
         <template v-else-if="leaf === 'add-source'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
-              @click="save('add-source', () => (connectedList.length === dataSources.length ? '' : `还有 ${dataSources.length - connectedList.length} 个数据源未完成连接测试`))">保存</button>
+              @click="save('add-source', () => {
+                const unchecked = dataSources.find((src) => sourceChecked(src).length !== src.items.length)
+                if (unchecked) return `${unchecked.name} 请勾选全部数据内容`
+                if (connectedList.length !== dataSources.length) return `还有 ${dataSources.length - connectedList.length} 个数据源未完成连接测试`
+                return ''
+              })">保存</button>
           </div>
           <ul class="source-list">
             <li v-for="src in dataSources" :key="src.code">
@@ -511,7 +674,12 @@ onBeforeUnmount(stopExtract)
                   @click="testSource(src.code)">连接测试</button>
               </div>
               <p class="source-type">{{ src.platform }} ｜ {{ src.meta }}</p>
-              <p class="source-content">数据内容：{{ src.content }}</p>
+              <p class="form-desc">数据内容</p>
+              <div class="checkbox-group tight">
+                <label v-for="item in src.items" :key="item" class="checkbox-item">
+                  <input v-model="sourceItems[`${src.code}:${item}`]" type="checkbox" />{{ item }}
+                </label>
+              </div>
             </li>
           </ul>
           <template v-if="flow.isDone('add-source')">
@@ -525,37 +693,31 @@ onBeforeUnmount(stopExtract)
         <!-- 数据采集任务 → 字段映射 → 新增字段 -->
         <template v-else-if="leaf === 'add-field'">
           <div class="sys-toolbar">
+            <button type="button" class="secondary-button" @click="oneClickMatch">一键匹配</button>
             <button type="button" class="primary-button"
-              @click="save('add-field')">保存字段映射</button>
+              @click="save('add-field', fieldMapError)">保存字段映射</button>
           </div>
           <div class="score-table-wrap">
-            <table class="calc-table compact">
-              <thead><tr><th>字段名称</th><th>字段编码</th><th>数据类型</th><th>来源</th></tr></thead>
+            <table class="calc-table compact center-text">
+              <thead><tr><th>字段名称</th><th>字段编码</th><th>数据类型</th><th>来源</th><th>主键</th><th>唯一</th></tr></thead>
               <tbody>
                 <tr v-for="(row, index) in fieldRows" :key="index">
                   <td><input v-model="row.name" class="form-control" /></td>
                   <td><input v-model="row.code" class="form-control" /></td>
                   <td><input v-model="row.type" class="form-control" /></td>
                   <td><input v-model="row.source" class="form-control" /></td>
+                  <td><input v-model="pkOn[fields[index][1]]" type="checkbox" /></td>
+                  <td><input v-model="uniqueOn[fields[index][1]]" type="checkbox" /></td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <div class="form-row">
-            <label class="form-item">
-              <span class="form-label">主键</span>
-              <input v-model="fieldMeta.primaryKey" class="form-control" />
-            </label>
-            <label class="form-item">
-              <span class="form-label">唯一性约束</span>
-              <input v-model="fieldMeta.uniqueConstraint" class="form-control" />
-            </label>
-          </div>
+          <p class="form-desc">步骤设置：主键勾选网格编号 GRID_ID；唯一性约束勾选网格编号 + 采集时间。</p>
           <template v-if="flow.isDone('add-field')">
             <p class="sys-toast">统一字段模型保存成功，{{ fieldRows.length }} 个字段完成映射。</p>
             <dl class="block-fields">
-              <div class="field-row"><dt>主键</dt><dd>{{ fieldMeta.primaryKey }}</dd></div>
-              <div class="field-row"><dt>唯一性约束</dt><dd>{{ fieldMeta.uniqueConstraint }}</dd></div>
+              <div class="field-row"><dt>主键</dt><dd>GRID_ID</dd></div>
+              <div class="field-row"><dt>唯一性约束</dt><dd>GRID_ID + COLLECT_TIME</dd></div>
             </dl>
           </template>
         </template>
@@ -573,7 +735,7 @@ onBeforeUnmount(stopExtract)
               <input v-model="pythonNode.name" class="form-control" />
             </label>
           </div>
-          <textarea v-model="pythonNode.code" class="form-control" rows="16" />
+          <CodeEditor v-model="pythonNode.code" />
           <p v-if="syntaxChecked" class="sys-toast">Python代码检测通过</p>
           <template v-if="flow.isDone('python-node')">
             <ul class="sys-lines">
@@ -597,7 +759,7 @@ onBeforeUnmount(stopExtract)
               <tr v-for="dim in extractDimensions" :key="dim.name">
                 <td><input v-model="dims[dim.name]" type="checkbox" /></td>
                 <th scope="row">{{ dim.name }}</th>
-                <td><input v-model="dimFields[dim.name]" class="form-control" /></td>
+                <td>{{ dim.fields }}</td>
               </tr>
             </tbody>
           </table>
@@ -624,7 +786,10 @@ onBeforeUnmount(stopExtract)
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">数据集</span>
-              <input v-model="dataGradeForm.dataset" class="form-control" />
+              <select v-model="dataGradeForm.dataset" class="form-control">
+                <option value="">请选择</option>
+                <option v-for="n in DATASET_OPTIONS" :key="n">{{ n }}</option>
+              </select>
             </label>
             <label class="form-item">
               <span class="form-label required">数据级别</span>
@@ -634,14 +799,17 @@ onBeforeUnmount(stopExtract)
             </label>
           </div>
           <div class="score-table-wrap">
-            <table class="calc-table compact">
+            <table class="calc-table compact center-text">
               <thead><tr><th>角色</th><th>访问规则</th></tr></thead>
               <tbody>
                 <tr v-for="row in accessRules" :key="row.role">
                   <th scope="row">{{ row.role }}</th>
                   <td>
-                    <span v-if="row.denied" class="verdict fail">{{ row.access }}</span>
-                    <template v-else>{{ row.access }}</template>
+                    <select v-model="accessChoice[row.role]" class="form-control">
+                      <option value="">请选择</option>
+                      <option v-for="n in ACCESS_OPTIONS" :key="n" :value="n">{{ n }}</option>
+                    </select>
+                    <span v-if="accessChoice[row.role] === '禁止访问'" class="verdict fail">禁止访问</span>
                   </td>
                 </tr>
               </tbody>
@@ -656,7 +824,7 @@ onBeforeUnmount(stopExtract)
           <template v-if="flow.isDone('data-grade')">
             <p class="sys-toast">{{ dataGradeForm.level || '数据' }}访问控制已启用</p>
             <ul class="sys-lines">
-              <li v-for="row in accessRules" :key="row.role" :class="{ warn: row.denied }">{{ row.role }}：{{ row.access }}</li>
+              <li v-for="row in accessRules" :key="row.role" :class="{ warn: accessChoice[row.role] === '禁止访问' }">{{ row.role }}：{{ accessChoice[row.role] }}</li>
               <li class="info">{{ enabledGuards.join(' ｜ ') }}</li>
             </ul>
           </template>
@@ -665,21 +833,31 @@ onBeforeUnmount(stopExtract)
         <!-- 数据质量 → 异常监测 → 新建监测规则 -->
         <template v-else-if="leaf === 'iqr-rule'">
           <div class="sys-toolbar">
+            <button type="button" class="secondary-button" @click="fillKnownRainfall">载入已知降雨量</button>
             <button type="button" class="primary-button"
-              @click="save('iqr-rule')">启动监测</button>
+              @click="save('iqr-rule', () => (iqrForm.name && iqrForm.field && iqrForm.method ? '' : '请用下拉选项完成规则名称、监测字段与监测方法'))">启动监测</button>
           </div>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label">规则名称</span>
-              <input v-model="iqrForm.name" class="form-control" />
+              <select v-model="iqrForm.name" class="form-control">
+                <option value="">请选择</option>
+                <option v-for="n in IQR_NAME_OPTIONS" :key="n">{{ n }}</option>
+              </select>
             </label>
             <label class="form-item">
               <span class="form-label">监测字段</span>
-              <input v-model="iqrForm.field" class="form-control" />
+              <select v-model="iqrForm.field" class="form-control">
+                <option value="">请选择</option>
+                <option v-for="n in IQR_FIELD_OPTIONS" :key="n">{{ n }}</option>
+              </select>
             </label>
             <label class="form-item">
               <span class="form-label">监测方法</span>
-              <input v-model="iqrForm.method" class="form-control" />
+              <select v-model="iqrForm.method" class="form-control">
+                <option value="">请选择</option>
+                <option v-for="n in IQR_METHOD_OPTIONS" :key="n">{{ n }}</option>
+              </select>
             </label>
           </div>
           <p class="block-formula">IQR = Q3 － Q1　｜　异常下限 = Q1 － 1.5 × IQR　｜　异常上限 = Q3 ＋ 1.5 × IQR</p>
@@ -688,7 +866,12 @@ onBeforeUnmount(stopExtract)
             <tbody>
               <tr v-for="item in rainfall" :key="item.grid">
                 <th scope="row">{{ item.grid }}</th>
-                <td><input v-model="item.value" class="form-control" /></td>
+                <td>
+                  <select v-model="item.value" class="form-control">
+                    <option value="">请选择</option>
+                    <option v-for="n in RAINFALL_OPTIONS" :key="n" :value="n">{{ n }}</option>
+                  </select>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -747,8 +930,8 @@ onBeforeUnmount(stopExtract)
                 <tr v-for="rule in qualityRules" :key="rule.id">
                   <td><input v-model="rules[rule.id]" type="checkbox" /></td>
                   <th scope="row">{{ rule.id }}<em class="row-unit">{{ rule.name }}</em></th>
-                  <td><input v-model="qualityDetails[rule.id].detail" class="form-control" /></td>
-                  <td><input v-model="qualityDetails[rule.id].action" class="form-control" /></td>
+                  <td>{{ rule.detail }}</td>
+                  <td>{{ rule.action }}</td>
                 </tr>
               </tbody>
             </table>
@@ -756,7 +939,7 @@ onBeforeUnmount(stopExtract)
           <template v-if="flow.isDone('quality-rule')">
             <p class="sys-toast">4 项数据质量规则已启用并进入运行状态。</p>
             <ul class="sys-lines">
-              <li v-for="rule in enabledRules" :key="rule.id">{{ rule.name }} · {{ qualityDetails[rule.id].action || qualityDetails[rule.id].detail }}</li>
+              <li v-for="rule in enabledRules" :key="rule.id">{{ rule.name }} · {{ rule.action }}</li>
             </ul>
           </template>
         </template>
@@ -764,8 +947,9 @@ onBeforeUnmount(stopExtract)
         <!-- 数据采集任务 → 运行采集任务 -->
         <template v-else-if="leaf === 'run-task'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button"
-              @click="save('run-task', runtimeError)">运行</button>
+            <button type="button" class="primary-button" :disabled="running" @click="startRun">
+              {{ running ? '运行中…' : '运行' }}
+            </button>
           </div>
           <dl class="block-fields">
             <div class="field-row"><dt>采集任务</dt><dd>{{ taskForm.name }}（{{ taskForm.code }}）</dd></div>
@@ -775,15 +959,23 @@ onBeforeUnmount(stopExtract)
           <ul v-if="runtimeMissing.length" class="sys-lines">
             <li v-for="item in runtimeMissing" :key="item.id" class="warn">{{ item.label }} 尚未配置完成</li>
           </ul>
-          <template v-if="flow.isDone('run-task')">
+          <p v-if="running" class="sys-toast">正在逐项执行采集过程，请稍候…</p>
+
+          <template v-if="shownSources.length">
             <div class="calc-subhead"><h3>数据源连接状态</h3></div>
             <ul class="sys-lines">
-              <li v-for="src in dataSources" :key="src.code">{{ src.short }}　✅ 正常</li>
+              <li v-for="src in shownSources" :key="src.code">{{ src.short }}　✅ 正常</li>
             </ul>
+          </template>
+
+          <template v-if="shownGrids.length">
             <div class="calc-subhead"><h3>数据采集状态</h3></div>
             <div class="grid-chips">
-              <span v-for="grid in disasterGrids" :key="grid.id" class="grid-chip done">{{ grid.id }}<em>✅</em></span>
+              <span v-for="grid in shownGrids" :key="grid.id" class="grid-chip done">{{ grid.id }}<em>✅</em></span>
             </div>
+          </template>
+
+          <template v-if="showRunStatus">
             <div class="calc-subhead"><h3>系统状态</h3></div>
             <div class="stat-grid">
               <div class="stat-cell">
@@ -792,7 +984,7 @@ onBeforeUnmount(stopExtract)
               </div>
               <div class="stat-cell">
                 <span class="stat-label">数据源连接</span>
-                <strong class="stat-value">{{ connectedList.length }}/{{ dataSources.length }}</strong>
+                <strong class="stat-value">{{ shownSources.length }}/{{ dataSources.length }}</strong>
               </div>
               <div class="stat-cell">
                 <span class="stat-label">网格覆盖</span>
@@ -801,6 +993,38 @@ onBeforeUnmount(stopExtract)
               <div class="stat-cell"><span class="stat-label">安全监测</span><strong class="stat-value small">运行中</strong></div>
               <div class="stat-cell"><span class="stat-label">异常监测</span><strong class="stat-value small">运行中</strong></div>
             </div>
+          </template>
+
+          <template v-if="showRunExport">
+            <div class="calc-subhead"><h3>数据导出与同步</h3></div>
+            <div class="sys-toolbar">
+              <button type="button" class="secondary-button"
+                @click="exportItems.forEach((n) => (exportKeeps[n] = true))">全部勾选留痕</button>
+              <button type="button" class="primary-button"
+                @click="save('data-export', exportError)">导出并同步</button>
+            </div>
+            <div class="form-row">
+              <label class="form-item">
+                <span class="form-label">导出对象</span>
+                <select v-model="exportForm.target" class="form-control">
+                  <option value="">请选择</option>
+                  <option>数据共享中心</option>
+                  <option>应急预算测算系统</option>
+                </select>
+              </label>
+              <label class="form-item">
+                <span class="form-label">导出格式</span>
+                <select v-model="exportForm.format" class="form-control">
+                  <option value="">请选择</option><option>Excel</option><option>CSV</option>
+                </select>
+              </label>
+            </div>
+            <div class="checkbox-group">
+              <label v-for="n in exportItems" :key="n" class="checkbox-item">
+                <input v-model="exportKeeps[n]" type="checkbox" />{{ n }}
+              </label>
+            </div>
+            <p v-if="flow.isDone('data-export')" class="sys-toast">数据导出成功，已同步至{{ exportForm.target || '数据共享中心' }}。</p>
           </template>
         </template>
 

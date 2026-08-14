@@ -45,6 +45,8 @@ def read_sheet(path, sheet):
         cells = [("" if c.value is None else str(c.value).strip()) for c in row]
         while cells and not cells[-1]:
             cells.pop()
+        while cells and not cells[0]:
+            cells.pop(0)
         if cells:
             rows[row[0].row] = cells
     return rows
@@ -328,7 +330,16 @@ def build_step(step_id, role_id, label, title, lines, outputs, sub_role=None):
 # --------------------------------------------------------------------------
 
 STAGE1_FILE = "洪涝阶段一.xlsx"
+STAGE1_FULL_FILE = "洪涝阶段一全.xlsx"
 STAGE2_FILE = "洪涝阶段二.xlsx"
+
+# 补充表工作表名带有“从第N行开始”，读入后按岗位短名归档，便于与阶段二同一套分段逻辑复用。
+STAGE1_FULL_SHEETS = {
+    "财务主管统筹岗": "财务主管统筹岗-1020行开始",
+    "采购成本保障岗": "采购成本保障岗-656行开始",
+    "应急预算绩效岗": "应急预算绩效岗-57行开始",
+    "资金核算风控岗": "资金核算风控岗-1行",
+}
 
 STAGE1 = [
     {
@@ -398,6 +409,46 @@ STAGE1 = [
             ("输出总预算需求", 37, 37),
         ],
         "outputs": ["灾情数据成本动因转换计算表", "9网格预算测算表"],
+    },
+]
+
+# 洪涝阶段一全.xlsx 在原 5 个任务之后续写的内容。任务 6、8 在表中有标题；
+# 「B方案预算审批」夹在任务 6 与任务 8 之间，按执行顺序编为任务 7。
+STAGE1_EXTRA = [
+    {
+        "key": "s1-t6",
+        "no": 6,
+        "title": "编制A、B、C三受灾等级预算",
+        "owner": "budget-performance",
+        "summary": "按轻度、中度、重度编制 A/B/C 三套预算：A 方案 2,816,906 元、B 方案 2,909,004 元、C 方案 4,278,517.50 元，并形成单位受益成本与适用灾情对照。",
+        "panel": "abc-budget",
+        "segments": [("应急预算绩效岗", 59, 82, "编制三受灾等级预算")],
+        "outputs": ["ABC三受灾等级预算计算表", "ABC三方案预算"],
+    },
+    {
+        "key": "s1-t7",
+        "no": 7,
+        "title": "B方案预算审批",
+        "owner": "finance-lead",
+        "summary": "登记 III 级响应并载入 B 方案，按已确认到账 366 万元测算资金覆盖率 125.82%，建立 2,909,004 元预算控制额度并完成审批同步。",
+        "panel": "budget-approval",
+        "segments": [("财务主管统筹岗", 1022, 1257, None)],
+        "outputs": ["B方案应急预算审批单", "资金保障测算表", "预备费控制台账"],
+    },
+    {
+        "key": "s1-t8",
+        "no": 8,
+        "title": "第一次突发事件——受灾人数突然增加",
+        "owner": "budget-performance",
+        "summary": "甲3、甲6二次报送后响应由 III 级升为 II 级，预算由 B 方案切换为 C 方案；财政资金全部到位后覆盖率 93.96%，短期缺口 258,517.50 元，并启动帐篷追加采购。",
+        "panel": "emergency-update",
+        "segments": [
+            ("应急预算绩效岗", 86, 166, None),
+            ("财务主管统筹岗", 1261, 1270, "预算方案二次决策"),
+            ("采购成本保障岗", 659, 679, "新增物资分析"),
+            ("资金核算风控岗", 3, 17, "资金状态汇总"),
+        ],
+        "outputs": ["二次灾情数据更新表", "C方案预算参数", "资金韧性测算"],
     },
 ]
 
@@ -562,9 +613,9 @@ def build_stage1(sheets):
     return tasks
 
 
-def build_stage2(sheets):
+def build_stage2(sheets, configs=None, stage=2, source="洪涝阶段二.xlsx"):
     tasks = []
-    for cfg in STAGE2:
+    for cfg in configs or STAGE2:
         outputs = list(cfg.get("outputs", []))
         steps = []
         roles = []
@@ -659,14 +710,14 @@ def build_stage2(sheets):
         tasks.append(
             {
                 "key": cfg["key"],
-                "stage": 2,
+                "stage": stage,
                 "no": cfg["no"],
                 "title": cfg["title"],
                 "owner": cfg["owner"],
                 "roles": roles,
                 "summary": cfg["summary"],
                 "panel": cfg.get("panel"),
-                "source": "洪涝阶段二.xlsx",
+                "source": source,
                 "outputs": dedupe(outputs),
                 "steps": steps,
             }
@@ -684,10 +735,13 @@ def dedupe(items):
 
 
 def main():
-    s1_sheets = {name: read_sheet(STAGE1_FILE, name) for name in ROLE_BY_SHEET}
-    s2_sheets = {name: read_sheet(STAGE2_FILE, name) for name in ROLE_BY_SHEET}
+    role_sheets = tuple(ROLE_BY_SHEET)
+    s1_sheets = {name: read_sheet(STAGE1_FILE, name) for name in role_sheets}
+    s1_full = {name: read_sheet(STAGE1_FULL_FILE, sheet) for name, sheet in STAGE1_FULL_SHEETS.items()}
+    s2_sheets = {name: read_sheet(STAGE2_FILE, name) for name in role_sheets}
 
-    tasks = build_stage1(s1_sheets) + build_stage2(s2_sheets)
+    extra = build_stage2(s1_full, STAGE1_EXTRA, stage=1, source="洪涝阶段一全.xlsx")
+    tasks = build_stage1(s1_sheets) + extra + build_stage2(s2_sheets)
 
     for task in tasks:
         for step in task["steps"]:
@@ -697,7 +751,7 @@ def main():
     payload = json.dumps(tasks, ensure_ascii=False, indent=2)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(
-        "// 由 scripts/build_tasks.py 从洪涝阶段一/阶段二工作簿生成，请勿手工编辑。\n"
+        "// 由 scripts/build_tasks.py 从洪涝阶段一/阶段一全/阶段二工作簿生成，请勿手工编辑。\n"
         "// 重新生成：python scripts/build_tasks.py\n\n"
         f"export const taskContent = {payload}\n",
         encoding="utf-8",

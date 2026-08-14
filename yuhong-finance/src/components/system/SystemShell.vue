@@ -3,6 +3,9 @@
 // 工作簿里的「A → B → C」导航路径在这里是真的要一层层点进去的。
 import { computed, ref, watch } from 'vue'
 import SystemMenuNode from './SystemMenuNode.vue'
+import StepBar from './StepBar.vue'
+
+const SESSION_KEY = 'yuhong-sys-logged-in'
 
 const props = defineProps({
   system: { type: String, required: true },
@@ -14,11 +17,12 @@ const props = defineProps({
   org: { type: String, default: '应急财经专网' },
   account: { type: String, default: 'HJ-2026-001' },
   error: { type: String, default: '' },
+  steps: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['update:activeId', 'reset'])
 
-const loggedIn = ref(false)
+const loggedIn = ref(typeof sessionStorage !== 'undefined' && sessionStorage.getItem(SESSION_KEY) === '1')
 const openIds = ref([])
 const password = ref('********')
 
@@ -69,6 +73,7 @@ function open(id) {
 
 function login() {
   loggedIn.value = true
+  sessionStorage.setItem(SESSION_KEY, '1')
 }
 
 function logout() {
@@ -132,6 +137,14 @@ defineExpose({ logout })
             <span class="sys-crumb-item" :class="{ current: index === path.length - 1 }">{{ node.label }}</span>
           </template>
         </div>
+
+        <StepBar
+          v-if="steps.length"
+          :steps="steps"
+          :active-id="activeId"
+          :completed="completed"
+          @select="open"
+        />
 
         <p v-if="error" class="sys-toast danger sys-error">{{ error }}</p>
 

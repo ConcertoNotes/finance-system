@@ -10,9 +10,11 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 FILES = [
     "洪涝阶段一.xlsx",
+    "洪涝阶段一全.xlsx",
     "洪涝阶段二.xlsx",
     "保险方案综合评分计算表.xlsx",
     "灾情数据成本动因转换计算表.xlsx",
+    "ABC三受灾等级预算计算表.xlsx",
 ]
 
 

@@ -8,6 +8,16 @@ import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import { useFormPersist } from '../../composables/useFormPersist.js'
 
 const PAGES = ['new-ledger', 'subject-config', 'fund-category', 'grid-manage', 'link-rule', 'role-auth', 'risk-rule', 'ledger-activate']
+const STEPS = [
+  { id: 'new-ledger', label: '新增账套' },
+  { id: 'subject-config', label: '专项科目' },
+  { id: 'fund-category', label: '资金类别' },
+  { id: 'grid-manage', label: '网格管理' },
+  { id: 'link-rule', label: '联动规则' },
+  { id: 'role-auth', label: '角色权限' },
+  { id: 'risk-rule', label: '风控规则' },
+  { id: 'ledger-activate', label: '账套启用' },
+]
 const flow = useTaskFlow('s1-t1', PAGES)
 const store = useFormPersist('s1-t1')
 
@@ -57,6 +67,10 @@ const menu = [
 const activeId = ref('')
 const error = ref('')
 
+const PROJECT_OPTIONS = ['洪涝应急救援专项项目', '日常业务项目']
+const MATERIAL_OPTIONS = ['帐篷', '食品', '饮用水', '棉被', '冲锋舟', '急救包', '救生衣']
+const AUX_LEVELS = ['洪涝应急救援专项', '网格', '物资/费用项目']
+
 const form = reactive({
   name: '',
   code: '',
@@ -65,6 +79,7 @@ const form = reactive({
   startDate: '',
   currency: '',
   period: '',
+  projectPick: '',
 })
 
 const subjectNames = ['捐赠收入', '应急采购支出', '运输支出', '保险支出', '设备及救援保障支出', '其他应急救援支出']
@@ -77,13 +92,33 @@ const aux = reactive(Object.fromEntries(auxNames.map((n) => [n, false])))
 const strictFunds = reactive(Object.fromEntries(fundNames.map((n) => [n, false])))
 const grids = reactive(Object.fromEntries(gridNames.map((n) => [n, false])))
 const rules = reactive({ 规则1: false, 规则2: false, 规则3: false, 规则4: false, 规则5: false })
+const auxLevels = reactive(Object.fromEntries(AUX_LEVELS.map((n) => [n, false])))
+
+const fundAttrs = reactive({
+  limitedUse: false,
+  limitedGrids: Object.fromEntries(gridNames.map((n) => [n, false])),
+  limitedMaterials: Object.fromEntries(MATERIAL_OPTIONS.map((n) => [n, false])),
+  arrivalTime: '',
+  payableTime: '',
+  balance: '',
+})
 
 const chainRows = [
-  { step: '①需求单', bind: '网格编号、需求物资、需求数量、预算项目' },
-  { step: '②采购/物资单', bind: '网格编号、物资编码、采购数量、供应商、合同编号' },
-  { step: '③付款申请', bind: '预算额度、资金来源、资金用途标签、合同编号' },
-  { step: '④会计凭证', bind: '会计科目、专项项目、网格、资金来源、合同编号' },
+  { step: '①需求单', fields: ['网格编号', '需求物资', '需求数量', '预算项目'] },
+  { step: '②采购/物资单', fields: ['网格编号', '物资编码', '采购数量', '供应商', '合同编号'] },
+  { step: '③付款申请', fields: ['预算额度', '资金来源', '资金用途标签', '合同编号'] },
+  { step: '④会计凭证', fields: ['会计科目', '专项项目', '网格', '资金来源', '合同编号'] },
 ]
+const chainBind = reactive(Object.fromEntries(
+  chainRows.flatMap((row) => row.fields.map((field) => [`${row.step}:${field}`, false])),
+))
+const chainRuleOn = reactive(Object.fromEntries([
+  '无需求依据 → 不得形成采购申请',
+  '超预算 → 自动预警',
+  '资金用途不匹配 → 阻断付款',
+  '未完成验收 → 暂停支付',
+  '四流数据不一致 → 转人工复核',
+].map((r) => [r, false])))
 
 const chainRules = [
   '无需求依据 → 不得形成采购申请',
@@ -102,26 +137,42 @@ const controlRules = [
 ]
 
 const rolePermissions = [
-  { name: '财务主管统筹岗', permissions: '专项账套启用、预算及重大调整审批、付款审批、异常事项最终复核、全项目数据查看', limit: '—' },
-  { name: '应急预算绩效岗', permissions: '灾情数据读取、BI分析、预算编制、预算调整申请、绩效分析', limit: '不得直接付款' },
-  { name: '采购成本保障岗', permissions: '采购需求、价格分析、供应商评价、合同及履约管理', limit: '不得直接修改资金来源' },
-  { name: '资金核算风控岗', permissions: '资金分类、预算占用、付款核验、四流匹配、会计核算、银行对账', limit: '不得自行审批本人提交的付款' },
-  { name: '数字人御洪星', permissions: '数据采集、风险提示、异常监测、信息推送、证据归集', limit: '仅提供辅助决策，无最终审批权限' },
+  { name: '财务主管统筹岗', nodes: ['专项账套启用', '预算及重大调整审批', '付款审批', '异常事项最终复核', '全项目数据查看'], limit: '—' },
+  { name: '应急预算绩效岗', nodes: ['灾情数据读取', 'BI分析', '预算编制', '预算调整申请', '绩效分析'], limit: '不得直接付款' },
+  { name: '采购成本保障岗', nodes: ['采购需求', '价格分析', '供应商评价', '合同及履约管理'], limit: '不得直接修改资金来源' },
+  { name: '资金核算风控岗', nodes: ['资金分类', '预算占用', '付款核验', '四流匹配', '会计核算', '银行对账'], limit: '不得自行审批本人提交的付款' },
+  { name: '数字人御洪星', nodes: ['数据采集', '风险提示', '异常监测', '信息推送', '证据归集'], limit: '仅提供辅助决策，无最终审批权限' },
 ]
+const roleNodeKeys = rolePermissions.flatMap((r) => r.nodes.map((node) => `${r.name}:${node}`))
 
 const checkItems = ['需求关联', '预算项目关联', '资金来源关联', '会计科目关联', '网格辅助核算', '权限校验']
+const roleChecked = reactive(Object.fromEntries(roleNodeKeys.map((k) => [k, false])))
 
 const chosenSubjects = computed(() => subjectNames.filter((n) => subjects[n]))
 const chosenAux = computed(() => auxNames.filter((n) => aux[n]))
 const chosenGrids = computed(() => gridNames.filter((n) => grids[n]))
+const chosenLevels = computed(() => AUX_LEVELS.filter((n) => auxLevels[n]))
+const chosenMaterials = computed(() => MATERIAL_OPTIONS.filter((n) => fundAttrs.limitedMaterials[n]))
+const chosenLimitGrids = computed(() => gridNames.filter((n) => fundAttrs.limitedGrids[n]))
+const enabledChainRules = computed(() => chainRules.filter((r) => chainRuleOn[r]))
+
+function boundFieldsOf(step) {
+  return step.fields.filter((field) => chainBind[`${step.step}:${field}`])
+}
+const confirmedRoles = computed(() => rolePermissions.filter((r) => r.nodes.every((node) => roleChecked[`${r.name}:${node}`])))
+const checkedRoleNodes = computed(() => roleNodeKeys.filter((k) => roleChecked[k]))
+
+function checkAllRoleNodes() {
+  roleNodeKeys.forEach((k) => { roleChecked[k] = true })
+}
 const strictList = computed(() => fundNames.filter((n) => strictFunds[n]))
 const enabledRules = computed(() => controlRules.filter((r) => rules[r.id]))
 const pendingPages = computed(() => PAGES.filter((p) => p !== 'ledger-activate' && !flow.isDone(p)))
 
-store.restore({ form, subjects, aux, strictFunds, grids, rules })
+store.restore({ form, subjects, aux, strictFunds, grids, rules, auxLevels, fundAttrs, chainBind, chainRuleOn, roleChecked })
 
 function snapshot() {
-  return { form, subjects, aux, strictFunds, grids, rules }
+  return { form, subjects, aux, strictFunds, grids, rules, auxLevels, fundAttrs, chainBind, chainRuleOn, roleChecked }
 }
 
 function save(id, check) {
@@ -146,12 +197,20 @@ function resetAll() {
     startDate: '',
     currency: '',
     period: '',
+    projectPick: '',
   })
   subjectNames.forEach((n) => { subjects[n] = false })
   auxNames.forEach((n) => { aux[n] = false })
   fundNames.forEach((n) => { strictFunds[n] = false })
   gridNames.forEach((n) => { grids[n] = false })
   controlRules.forEach((r) => { rules[r.id] = false })
+  AUX_LEVELS.forEach((n) => { auxLevels[n] = false })
+  Object.assign(fundAttrs, { limitedUse: false, arrivalTime: '', payableTime: '', balance: '' })
+  gridNames.forEach((n) => { fundAttrs.limitedGrids[n] = false })
+  MATERIAL_OPTIONS.forEach((n) => { fundAttrs.limitedMaterials[n] = false })
+  Object.keys(chainBind).forEach((k) => { chainBind[k] = false })
+  chainRules.forEach((r) => { chainRuleOn[r] = false })
+  roleNodeKeys.forEach((k) => { roleChecked[k] = false })
   error.value = ''
 }
 </script>
@@ -163,6 +222,7 @@ function resetAll() {
       operator="财务主管统筹岗"
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"
@@ -227,7 +287,11 @@ function resetAll() {
         <template v-else-if="leaf === 'subject-config'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
-              @click="save('subject-config', () => (chosenSubjects.length === 6 && chosenAux.length === 4 ? '' : '需勾选全部 6 个专项科目，辅助核算须同时包含项目、网格、资金来源、物资类别'))">保存</button>
+              @click="save('subject-config', () => {
+                if (chosenSubjects.length !== 6 || chosenAux.length !== 4) return '需勾选全部 6 个专项科目，辅助核算须同时包含项目、网格、资金来源、物资类别'
+                if (form.projectPick !== '洪涝应急救援专项项目') return '请选择洪涝应急救援专项项目'
+                return ''
+              })">保存</button>
           </div>
           <p class="form-desc">在现有会计科目体系基础上勾选需要挂接专项辅助核算标签的科目，不另造一套科目。</p>
           <div class="checkbox-group">
@@ -241,9 +305,16 @@ function resetAll() {
               <input v-model="aux[n]" type="checkbox" />{{ n }}
             </label>
           </div>
-          <dl class="block-fields">
-            <div class="field-row"><dt>项目统一选择</dt><dd>洪涝应急救援专项项目</dd></div>
-          </dl>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label required">项目统一选择</span>
+              <select v-model="form.projectPick" class="form-control">
+                <option value="">请选择</option>
+                <option v-for="n in PROJECT_OPTIONS" :key="n">{{ n }}</option>
+              </select>
+            </label>
+            <div class="form-item" />
+          </div>
           <template v-if="flow.isDone('subject-config')">
             <p class="sys-toast">{{ chosenSubjects.length }} 个科目已挂接专项辅助核算标签。</p>
             <ul class="sys-lines">
@@ -256,12 +327,20 @@ function resetAll() {
         <template v-else-if="leaf === 'fund-category'">
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
-              @click="save('fund-category', () => (strictFunds['限定性社会捐赠'] ? '' : '限定性捐赠必须开启用途强制校验'))">保存</button>
+              @click="save('fund-category', () => {
+                if (!strictFunds['限定性社会捐赠']) return '限定性捐赠必须开启用途强制校验'
+                if (!fundAttrs.limitedUse) return '请设置是否限定用途'
+                if (!chosenLimitGrids.length) return '请勾选限定使用网格'
+                if (!chosenMaterials.length) return '请勾选限定物资类别'
+                if (!fundAttrs.arrivalTime || !fundAttrs.payableTime) return '请填写到账时间与可支付时间'
+                if (fundAttrs.balance === '' || fundAttrs.balance == null) return '请填写当前可用余额'
+                return ''
+              })">保存</button>
           </div>
           <table class="calc-table compact">
-            <thead><tr><th>资金来源标签</th><th style="width: 150px">用途强制校验</th></tr></thead>
+            <thead><tr><th>资金来源标签</th><th style="width: 180px">用途强制校验</th></tr></thead>
             <tbody>
-              <tr v-for="n in fundNames" :key="n">
+              <tr v-for="n in fundNames" :key="n" :class="{ active: n === '限定性社会捐赠' }">
                 <th scope="row">{{ n }}</th>
                 <td>
                   <label class="checkbox-item inline">
@@ -272,7 +351,52 @@ function resetAll() {
               </tr>
             </tbody>
           </table>
-          <p class="form-desc">资金使用属性：是否限定用途、限定使用网格、限定物资类别、到账时间、可支付时间、当前可用余额。</p>
+          <p class="form-desc">其中</p>
+          <div class="download-card">
+            <div>
+              <strong>限定性捐赠 → 开启「用途强制校验」</strong>
+              <p>限定性社会捐赠必须开启。后续付款用途与捐赠协议不一致时，系统自动预警并阻断支付。</p>
+            </div>
+            <button
+              type="button"
+              class="primary-button"
+              @click="strictFunds['限定性社会捐赠'] = true"
+            >
+              {{ strictFunds['限定性社会捐赠'] ? '已开启' : '开启用途强制校验' }}
+            </button>
+          </div>
+          <p class="form-desc">进一步设置资金使用属性</p>
+          <div class="checkbox-group">
+            <label class="checkbox-item">
+              <input v-model="fundAttrs.limitedUse" type="checkbox" />是否限定用途
+            </label>
+          </div>
+          <p class="form-desc">限定使用网格</p>
+          <div class="checkbox-group tight">
+            <label v-for="n in gridNames" :key="n" class="checkbox-item">
+              <input v-model="fundAttrs.limitedGrids[n]" type="checkbox" />{{ n }}
+            </label>
+          </div>
+          <p class="form-desc">限定物资类别</p>
+          <div class="checkbox-group">
+            <label v-for="n in MATERIAL_OPTIONS" :key="n" class="checkbox-item">
+              <input v-model="fundAttrs.limitedMaterials[n]" type="checkbox" />{{ n }}
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label required">到账时间</span>
+              <input v-model="fundAttrs.arrivalTime" class="form-control" type="date" />
+            </label>
+            <label class="form-item">
+              <span class="form-label required">可支付时间</span>
+              <input v-model="fundAttrs.payableTime" class="form-control" type="date" />
+            </label>
+            <label class="form-item">
+              <span class="form-label required">当前可用余额</span>
+              <input v-model="fundAttrs.balance" class="form-control" type="number" min="0" step="1000" />
+            </label>
+          </div>
           <template v-if="flow.isDone('fund-category')">
             <p class="sys-toast">5 类资金来源标签已建立，{{ strictList.length }} 类开启用途强制校验。</p>
             <ul class="sys-lines">
@@ -287,14 +411,24 @@ function resetAll() {
             <button type="button" class="secondary-button"
               @click="gridNames.forEach((n) => (grids[n] = true))">全选甲1—甲9</button>
             <button type="button" class="primary-button"
-              @click="save('grid-manage', () => (chosenGrids.length === 9 ? '' : `还有 ${9 - chosenGrids.length} 个网格未新增`))">保存</button>
+              @click="save('grid-manage', () => {
+                if (chosenGrids.length !== 9) return `还有 ${9 - chosenGrids.length} 个网格未新增`
+                if (chosenLevels.length !== AUX_LEVELS.length) return '请勾选辅助核算层级：洪涝应急救援专项 → 网格 → 物资/费用项目'
+                return ''
+              })">保存</button>
           </div>
           <div class="checkbox-group tight">
             <label v-for="n in gridNames" :key="n" class="checkbox-item">
               <input v-model="grids[n]" type="checkbox" />{{ n }}
             </label>
           </div>
-          <p class="block-path">辅助核算层级：洪涝应急救援专项 → 网格 → 物资/费用项目</p>
+          <p class="form-desc">设置辅助核算层级</p>
+          <div class="checkbox-group">
+            <label v-for="n in AUX_LEVELS" :key="n" class="checkbox-item">
+              <input v-model="auxLevels[n]" type="checkbox" />{{ n }}
+            </label>
+          </div>
+          <p v-if="chosenLevels.length" class="block-path">辅助核算层级：{{ chosenLevels.join(' → ') }}</p>
           <template v-if="flow.isDone('grid-manage')">
             <p class="sys-toast">9 个网格辅助核算维度建立完成：{{ chosenGrids.join('、') }}。</p>
             <p class="block-path">洪涝应急救援专项 → 甲3网格 → 帐篷 → 应急采购支出</p>
@@ -304,18 +438,33 @@ function resetAll() {
         <!-- 专项账套 → 业务财务映射 → 联动规则配置 -->
         <template v-else-if="leaf === 'link-rule'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="save('link-rule')">保存并启用</button>
+            <button type="button" class="primary-button"
+              @click="save('link-rule', () => {
+                const unbound = chainRows.find((row) => boundFieldsOf(row).length !== row.fields.length)
+                if (unbound) return `${unbound.step} 需逐项勾选绑定全部字段`
+                if (enabledChainRules.length !== chainRules.length) return '请勾选全部控制规则后再启用'
+                return ''
+              })">保存并启用</button>
           </div>
-          <ol class="chain-list">
-            <li v-for="row in chainRows" :key="row.step">
-              <span class="chain-step">{{ row.step }}</span>
-              <span class="chain-bind">{{ row.bind }}</span>
-            </li>
-          </ol>
+          <div v-for="row in chainRows" :key="row.step" class="form-item">
+            <span class="form-label">{{ row.step }} · 勾选绑定字段</span>
+            <div class="checkbox-group tight">
+              <label v-for="field in row.fields" :key="field" class="checkbox-item">
+                <input v-model="chainBind[`${row.step}:${field}`]" type="checkbox" />{{ field }}
+              </label>
+            </div>
+          </div>
+          <p class="form-desc">设置规则</p>
+          <div class="checkbox-group">
+            <label v-for="r in chainRules" :key="r" class="checkbox-item">
+              <input v-model="chainRuleOn[r]" type="checkbox" />{{ r }}
+            </label>
+          </div>
           <template v-if="flow.isDone('link-rule')">
             <p class="sys-toast">四层联动关系已建立，以下控制规则同步生效。</p>
             <ul class="sys-lines">
-              <li v-for="r in chainRules" :key="r" class="info">{{ r }}</li>
+              <li v-for="row in chainRows" :key="row.step">{{ row.step }}：{{ boundFieldsOf(row).join('、') }}</li>
+              <li v-for="r in enabledChainRules" :key="r" class="info">{{ r }}</li>
             </ul>
           </template>
         </template>
@@ -323,21 +472,24 @@ function resetAll() {
         <!-- 系统管理 → 用户权限 → 角色权限配置 -->
         <template v-else-if="leaf === 'role-auth'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="save('role-auth')">确认权限配置</button>
+            <button type="button" class="secondary-button" @click="checkAllRoleNodes">全部勾选</button>
+            <button type="button" class="primary-button"
+              @click="save('role-auth', () => (checkedRoleNodes.length === roleNodeKeys.length ? '' : `还有 ${roleNodeKeys.length - checkedRoleNodes.length} 个权限节点未勾选`))">确认权限配置</button>
           </div>
-          <p class="form-desc">岗位权限由系统预置，不可在本页修改。</p>
-          <div class="score-table-wrap">
-            <table class="calc-table compact">
-              <thead><tr><th>角色</th><th>权限</th><th>限制</th></tr></thead>
-              <tbody>
-                <tr v-for="row in rolePermissions" :key="row.name">
-                  <th scope="row">{{ row.name }}</th><td>{{ row.permissions }}</td><td>{{ row.limit }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <p class="form-desc">对各岗位权限节点逐项勾选设置，不相容职务保持分离。</p>
+          <div v-for="row in rolePermissions" :key="row.name" class="form-item">
+            <span class="form-label">{{ row.name }}<em v-if="row.limit !== '—'" class="row-unit">限制：{{ row.limit }}</em></span>
+            <div class="checkbox-group tight">
+              <label v-for="node in row.nodes" :key="node" class="checkbox-item">
+                <input v-model="roleChecked[`${row.name}:${node}`]" type="checkbox" />{{ node }}
+              </label>
+            </div>
           </div>
           <template v-if="flow.isDone('role-auth')">
-            <p class="sys-toast">5 个角色权限配置完成，不相容职务已分离。</p>
+            <p class="sys-toast">{{ confirmedRoles.length }} 个角色权限配置完成，不相容职务已分离。</p>
+            <ul class="sys-lines">
+              <li v-for="row in confirmedRoles" :key="row.name">{{ row.name }}：{{ row.nodes.join('、') }}</li>
+            </ul>
           </template>
         </template>
 
