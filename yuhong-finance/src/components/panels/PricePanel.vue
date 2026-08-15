@@ -1,212 +1,107 @@
 <script setup>
-// 应急采购管理系统 · 分层采购价格基准。
-// 菜单路径与工作簿一致，学生需登录后逐级点开菜单进入对应功能页办理业务。
+// 按当前《洪涝阶段二.xlsx》任务2：接收报价 → 下载/导入计算表 → 设置阈值。
 import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import { useFormPersist } from '../../composables/useFormPersist.js'
-import { priceQuotes } from '../../data/procurement.js'
+import { PRICE_OUTPUTS, PRICE_WORKBOOK, priceQuotes } from '../../data/procurement.js'
 import { calculatePriceBaseline, getDirectControlPrices } from '../../domain/procurement.js'
 import { money, num, signedPercent } from '../../domain/format.js'
 
-const PAGES = ['collect', 'caliber', 'stats', 'baseline', 'deviation', 'platform']
+const PAGES = ['receive', 'workbook', 'threshold']
 const flow = useTaskFlow('s2-t2', PAGES)
 const store = useFormPersist('s2-t2')
 
 const menu = [
   {
-    id: 'm-proc',
-    label: '采购管理',
+    id: 'm-price',
+    label: '价格管理',
     children: [
-      {
-        id: 'm-proc-price',
-        label: '价格管理',
-        children: [
-          { id: 'collect', label: '价格数据采集' },
-          { id: 'caliber', label: '价格口径统一' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'm-analysis',
-    label: '价格分析',
-    children: [
-      {
-        id: 'm-analysis-stats',
-        label: '统计测算',
-        children: [{ id: 'stats', label: '均价中位数区间' }],
-      },
-      {
-        id: 'm-analysis-base',
-        label: '基准管理',
-        children: [{ id: 'baseline', label: '综合价格基准' }],
-      },
-      {
-        id: 'm-analysis-dev',
-        label: '偏差分析',
-        children: [{ id: 'deviation', label: '价格偏差率' }],
-      },
-      {
-        id: 'm-analysis-pub',
-        label: '成果发布',
-        children: [{ id: 'platform', label: '价格基准上架' }],
-      },
+      { id: 'receive', label: '采集价格数据' },
+      { id: 'workbook', label: '打开分层采购价格计算表' },
+      { id: 'threshold', label: '设置采购控制阈值' },
     ],
   },
 ]
 
-const CALIBER_RULES = [
-  '4类合同采购物资的供应商报价统一转换为含税货物单价',
-  '运输费用和应急人工成本单独列示，不并入货物单价',
-  '食品、饮用水按含税零售价/框架协议结算价核验',
-  '配送费如单独发生则单列，避免与货价混同',
-]
-
-const EVIDENCE = [
-  '合同采购物资：历史采购价、最近市场参考价、三家供应商有效报价、税费口径、正常运输费用和应急交付附加成本',
-  '生活保障直采物资：历史价、市场参考价及大型商超即时价/框架协议价',
-  '全部询价过程留存询价截图、订单或销售凭证备查',
-]
-
-const OUTPUTS = [
-  '《4类合同物资价格基准表》',
-  '《2类生活保障物资应急零售/框架直采价格核验表》',
-  '《价格偏差分析表》',
-  '《报价口径校验单》',
-]
-
-function blankQuote(item) {
-  const next = { ...item, history: '', market: '' }
-  if (item.channel === 'contract') {
-    next.s1 = ''
-    next.s2 = ''
-    next.s3 = ''
-  } else {
-    next.control = ''
-  }
-  return next
-}
-
-function numericQuote(item) {
-  return {
-    ...item,
-    history: Number(item.history) || 0,
-    market: Number(item.market) || 0,
-    s1: Number(item.s1) || 0,
-    s2: Number(item.s2) || 0,
-    s3: Number(item.s3) || 0,
-    control: Number(item.control) || 0,
-  }
-}
-
-const quotes = reactive(Object.fromEntries(priceQuotes.map((item) => [item.id, blankQuote(item)])))
-const caliber = reactive(Object.fromEntries(CALIBER_RULES.map((rule) => [rule, false])))
-const thresholds = reactive({
-  yellow: '',
-  red: '',
-})
-
+const received = ref(false)
+const imported = ref(false)
+const thresholds = reactive({ yellow: '', red: '' })
 const activeId = ref('')
 const error = ref('')
-const focus = ref('tent')
 
-const quoteList = computed(() => priceQuotes.map((item) => quotes[item.id]))
-const numericQuotes = computed(() => quoteList.value.map(numericQuote))
-const contractQuotes = computed(() => quoteList.value.filter((item) => item.channel === 'contract'))
-const directQuotes = computed(() => getDirectControlPrices(quoteList.value))
-const rows = computed(() => calculatePriceBaseline(numericQuotes.value))
-const current = computed(() => rows.value.find((row) => row.id === focus.value) ?? rows.value[0])
-const chosenCaliber = computed(() => CALIBER_RULES.filter((rule) => caliber[rule]))
-const pendingPages = computed(() => PAGES.filter((id) => id !== 'platform' && !flow.isDone(id)))
+const contractQuotes = computed(() => priceQuotes.filter((item) => item.channel === 'contract'))
+const directQuotes = computed(() => getDirectControlPrices())
+const rows = computed(() => calculatePriceBaseline())
+const pendingPages = computed(() => PAGES.filter((id) => id !== 'threshold' && !flow.isDone(id)))
 
-store.restore({ quotes, caliber, thresholds })
+store.restore({ received, imported, thresholds })
 
 function snapshot() {
-  return { quotes, caliber, thresholds }
+  return { received: received.value, imported: imported.value, thresholds }
 }
 
-function level(rate) {
-  const scale = Math.abs(rate) * 100
-  if (scale >= (Number(thresholds.red) || 0)) return 'red'
-  if (scale >= (Number(thresholds.yellow) || 0)) return 'yellow'
-  return 'normal'
+function downloadUrl() {
+  return `${import.meta.env.BASE_URL}workbooks/${encodeURIComponent(PRICE_WORKBOOK)}`
 }
 
-function levelText(rate) {
-  const tier = level(rate)
-  if (tier === 'red') return '红色预警 · 启动重点复核'
-  return tier === 'yellow' ? '黄色预警 · 提示复核' : '正常'
+function receiveQuotes() {
+  received.value = true
+  store.persist(snapshot())
+  flow.complete('receive')
+  error.value = ''
 }
 
-function levelClass(rate) {
-  const tier = level(rate)
-  return tier === 'red' ? 'fail' : tier === 'yellow' ? 'warn' : 'pass'
+function importResults() {
+  if (!received.value) {
+    error.value = '请先接收供应商报价'
+    return
+  }
+  imported.value = true
+  store.persist(snapshot())
+  flow.complete('workbook')
+  error.value = ''
 }
 
-const alerts = computed(() =>
-  rows.value.flatMap((row) =>
-    row.deviations
-      .filter((item) => level(item.rate) !== 'normal')
-      .map((item) => ({ key: `${row.id}-${item.supplierId}`, material: row.name, unit: row.unit, ...item })),
-  ),
-)
+function checkThreshold() {
+  if (pendingPages.value.length) return '请先完成报价接收与测算结果导入'
+  if (Number(thresholds.yellow) !== 5) return '黄色预警阈值须设置为 5%'
+  if (Number(thresholds.red) !== 10) return '红色预警阈值须设置为 10%'
+  return ''
+}
 
-function run(id, check) {
-  const message = check ? check() : ''
+function saveThreshold() {
+  const message = checkThreshold()
   if (message) {
     error.value = message
     return
   }
   error.value = ''
   store.persist(snapshot())
-  flow.complete(id)
+  flow.complete('threshold')
 }
 
-function checkCollect() {
-  const missing = quoteList.value.filter((item) => {
-    if (!(item.history > 0) || !(item.market > 0)) return true
-    return item.channel === 'contract'
-      ? !(item.s1 > 0) || !(item.s2 > 0) || !(item.s3 > 0)
-      : !(item.control > 0)
-  })
-  if (!missing.length) return ''
-  return `${missing.map((item) => item.name).join('、')} 价格数据不完整，合同采购物资须取得三家有效报价，生活保障物资须录入直采控制价`
-}
-
-function checkCaliber() {
-  const rest = CALIBER_RULES.length - chosenCaliber.value.length
-  return rest ? `还有 ${rest} 条价格口径规则未确认` : ''
-}
-
-function checkThresholds() {
-  if (!(thresholds.yellow > 0) || !(thresholds.red > 0)) return '黄色与红色预警阈值均须大于 0'
-  if (thresholds.red <= thresholds.yellow) return '红色预警阈值须高于黄色预警阈值'
-  return ''
-}
-
-function checkPlatform() {
-  if (pendingPages.value.length) {
-    return `还有 ${pendingPages.value.length} 个功能页未办理，无法写入控制平台`
-  }
-  return checkThresholds()
+function lamp(rate) {
+  const scale = Math.abs(rate) * 100
+  if (scale >= 10) return { text: '🔴 重点复核', cls: 'fail' }
+  if (scale >= 5) return { text: '黄灯 重点关注', cls: 'warn' }
+  return { text: '绿灯 正常', cls: 'pass' }
 }
 
 function resetAll() {
   flow.reset()
   store.clear()
-  priceQuotes.forEach((item) => Object.assign(quotes[item.id], blankQuote(item)))
-  CALIBER_RULES.forEach((rule) => { caliber[rule] = false })
+  received.value = false
+  imported.value = false
   thresholds.yellow = ''
   thresholds.red = ''
-  focus.value = 'tent'
   error.value = ''
 }
 </script>
 
 <template>
-  <PanelShell title="分层采购价格基准" source="采购控制平台">
+  <PanelShell title="建立分层采购价格基准" source="采购控制平台">
     <SystemShell
       system="应急采购管理系统"
       operator="采购成本保障岗"
@@ -218,247 +113,134 @@ function resetAll() {
       @reset="resetAll"
     >
       <template #default="{ leaf }">
-        <!-- 采购管理 → 价格管理 → 价格数据采集 -->
-        <template v-if="leaf === 'collect'">
+        <template v-if="leaf === 'receive'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="run('collect', checkCollect)">
-              采集价格数据
-            </button>
+            <button type="button" class="primary-button" @click="receiveQuotes">点击接收供应商报价</button>
           </div>
-          <p class="form-desc">4类合同采购物资建立供应商比价基准，2类生活保障物资建立应急零售/框架协议直采价格核验。饮用水、食品不纳入 S1、S2、S3 供应商评分。</p>
-          <div class="score-table-wrap">
-            <table class="calc-table">
-              <thead>
-                <tr><th>物资</th><th>历史采购价</th><th>市场参考价</th><th>S1报价</th><th>S2报价</th><th>S3报价</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in quoteList" :key="row.id">
-                  <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
-                  <td><input v-model.number="row.history" type="number" min="0" step="0.5" /></td>
-                  <td><input v-model.number="row.market" type="number" min="0" step="0.5" /></td>
-                  <template v-if="row.channel === 'contract'">
-                    <td><input v-model.number="row.s1" type="number" min="0" step="0.5" /></td>
-                    <td><input v-model.number="row.s2" type="number" min="0" step="0.5" /></td>
-                    <td><input v-model.number="row.s3" type="number" min="0" step="0.5" /></td>
-                  </template>
-                  <td v-else colspan="3">
-                    <input v-model.number="row.control" type="number" min="0" step="0.5" />
-                    <em class="row-unit">应急零售/框架协议直采控制价，不纳入 S1、S2、S3 供应商评分</em>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <template v-if="flow.isDone('collect')">
-            <p class="sys-toast">6 类物资价格数据采集完成，其中 4 类合同采购物资取得 S1/S2/S3 三家有效报价。</p>
-            <ul class="sys-lines">
-              <li v-for="row in contractQuotes" :key="row.id">
-                {{ row.name }}（{{ row.unit }}）：历史价 {{ num(row.history, 2) }}、市场参考价 {{ num(row.market, 2) }}、S1 {{ num(row.s1, 2) }}、S2 {{ num(row.s2, 2) }}、S3 {{ num(row.s3, 2) }}
-              </li>
-              <li v-for="row in directQuotes" :key="row.id" class="info">
-                {{ row.name }}（{{ row.unit }}）：历史价 {{ num(row.history, 2) }}、市场参考价 {{ num(row.market, 2) }}、应急零售/框架协议直采控制价 {{ money(row.control, 2) }}
-              </li>
-            </ul>
-            <div class="calc-subhead"><h3>须留存的采集证据</h3></div>
-            <ul class="check-list">
-              <li v-for="item in EVIDENCE" :key="item">{{ item }}</li>
-            </ul>
-          </template>
-        </template>
-
-        <!-- 采购管理 → 价格管理 → 价格口径统一 -->
-        <template v-else-if="leaf === 'caliber'">
-          <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="run('caliber', checkCaliber)">
-              确认口径
-            </button>
-          </div>
-          <p class="form-desc">口径不统一将导致比价失真，须逐条确认后方可进入基准测算。</p>
-          <div class="checkbox-group">
-            <label v-for="rule in CALIBER_RULES" :key="rule" class="checkbox-item">
-              <input v-model="caliber[rule]" type="checkbox" />{{ rule }}
-            </label>
-          </div>
-          <template v-if="flow.isDone('caliber')">
-            <p class="sys-toast">价格口径校验通过，{{ chosenCaliber.length }} 条口径规则已生效，后续报价一律按此口径录入。</p>
-            <ul class="sys-lines">
-              <li v-for="rule in chosenCaliber" :key="rule">{{ rule }}</li>
-            </ul>
-          </template>
-        </template>
-
-        <!-- 价格分析 → 统计测算 → 均价中位数区间 -->
-        <template v-else-if="leaf === 'stats'">
-          <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="run('stats')">计算报价分布</button>
-          </div>
-          <p class="form-desc">样本为 S1、S2、S3 三家有效报价。平均价反映整体报价水平，中位数削弱极端值影响，报价区间用于判断离散程度。</p>
-          <template v-if="flow.isDone('stats')">
+          <p class="form-desc">第一步：采集价格数据。点完后出现合同采购物资价格采集表与生活保障直采物资价格核验表。</p>
+          <template v-if="received">
             <div class="score-table-wrap">
-              <table class="calc-table">
+              <table class="calc-table compact center-text">
+                <caption>合同采购物资价格采集表</caption>
                 <thead>
-                  <tr><th>物资</th><th>S1</th><th>S2</th><th>S3</th><th class="col-total">平均价</th><th>中位数</th><th>报价区间</th></tr>
+                  <tr>
+                    <th>物资</th><th>历史采购价</th><th>最近市场参考价</th>
+                    <th>S1报价</th><th>S2报价</th><th>S3报价</th>
+                    <th>税费口径</th><th>运输及应急成本要求</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in rows" :key="row.id">
-                    <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
-                    <td>{{ num(row.s1, 2) }}</td>
-                    <td>{{ num(row.s2, 2) }}</td>
-                    <td>{{ num(row.s3, 2) }}</td>
-                    <td class="col-total">{{ num(row.average, 2) }}</td>
-                    <td>{{ num(row.median, 2) }}</td>
-                    <td>{{ num(row.low, 2) }} — {{ num(row.high, 2) }}</td>
+                  <tr v-for="row in contractQuotes" :key="row.id">
+                    <th scope="row">{{ row.name }}</th>
+                    <td>{{ num(row.history, 0) }}{{ row.unit.replace('元', '') }}</td>
+                    <td>{{ num(row.market, 0) }}{{ row.unit.replace('元', '') }}</td>
+                    <td>{{ num(row.s1, 0) }}{{ row.unit.replace('元', '') }}</td>
+                    <td>{{ num(row.s2, 0) }}{{ row.unit.replace('元', '') }}</td>
+                    <td>{{ num(row.s3, 0) }}{{ row.unit.replace('元', '') }}</td>
+                    <td>{{ row.tax }}</td>
+                    <td>{{ row.freight }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <ul class="formula-list">
-              <li v-for="row in rows" :key="row.id">
-                {{ row.name }}平均价 = ({{ num(row.s1, 2) }} + {{ num(row.s2, 2) }} + {{ num(row.s3, 2) }}) / 3 = {{ num(row.average, 2) }}，中位数 {{ num(row.median, 2) }}，区间 {{ num(row.low, 2) }}—{{ num(row.high, 2) }}
-              </li>
-            </ul>
-          </template>
-        </template>
-
-        <!-- 价格分析 → 基准管理 → 综合价格基准 -->
-        <template v-else-if="leaf === 'baseline'">
-          <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="run('baseline')">生成基准价</button>
-          </div>
-          <p class="block-formula">综合基准价 = (历史采购价 + 市场参考价 + S1有效报价 + S2有效报价) / 4</p>
-          <p class="form-desc">为避免异常高价拉高基准，S3 报价不计入基准样本。基准样本刻意剔除最高报价，使基准价贴近合理成本水平，而不是被单家高报价带偏。</p>
-          <template v-if="flow.isDone('baseline')">
-            <p class="sys-toast">4 类合同物资综合价格基准已生成。</p>
             <div class="score-table-wrap">
-              <table class="calc-table">
+              <table class="calc-table compact center-text">
+                <caption>生活保障直采物资价格核验表</caption>
                 <thead>
-                  <tr><th>物资</th><th>历史采购价</th><th>市场参考价</th><th>S1</th><th>S2</th><th class="col-total">综合基准价</th></tr>
+                  <tr>
+                    <th>物资</th><th>历史价</th><th>市场参考价</th>
+                    <th>应急零售/框架协议控制价</th><th>采购方式</th>
+                    <th>供应商评分</th><th>凭证留存要求</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in rows" :key="row.id">
-                    <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
-                    <td>{{ num(row.history, 2) }}</td>
-                    <td>{{ num(row.market, 2) }}</td>
-                    <td>{{ num(row.s1, 2) }}</td>
-                    <td>{{ num(row.s2, 2) }}</td>
-                    <td class="col-total">{{ num(row.baseline, 2) }}</td>
+                  <tr v-for="row in directQuotes" :key="row.id">
+                    <th scope="row">{{ row.name }}</th>
+                    <td>{{ money(row.history, 0) }}元/{{ row.unit.slice(-1) }}</td>
+                    <td>{{ money(row.market, 0) }}元/{{ row.unit.slice(-1) }}</td>
+                    <td>{{ money(row.control, 1) }}元/{{ row.unit.slice(-1) }}</td>
+                    <td>{{ row.method }}</td>
+                    <td>{{ row.scored }}</td>
+                    <td>{{ row.evidence }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <ul class="formula-list">
-              <li v-for="row in rows" :key="row.id">
-                {{ row.name }}基准价 = ({{ num(row.history, 2) }} + {{ num(row.market, 2) }} + {{ num(row.s1, 2) }} + {{ num(row.s2, 2) }}) / 4 = {{ num(row.baseline, 2) }}
-              </li>
-            </ul>
+            <p class="sys-toast">供应商报价已接收，可打开分层采购价格计算表继续测算。</p>
           </template>
         </template>
 
-        <!-- 价格分析 → 偏差分析 → 价格偏差率 -->
-        <template v-else-if="leaf === 'deviation'">
+        <template v-else-if="leaf === 'workbook'">
+          <p class="form-desc">第二步：打开分层采购价格计算表。弄到平台，学生可以下载；点击导入测算结果后呈现平台效果。</p>
+          <div class="download-footer">
+            <a class="file-link" :href="downloadUrl()" :download="PRICE_WORKBOOK">{{ PRICE_WORKBOOK }}</a>
+          </div>
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="run('deviation')">计算偏差率</button>
+            <button type="button" class="primary-button" @click="importResults">导入测算结果</button>
           </div>
-          <p class="form-desc">切换物资可查看该物资逐家供应商的偏差演算。</p>
-          <div class="pill-group">
-            <button
-              v-for="row in rows"
-              :key="row.id"
-              type="button"
-              :class="{ active: focus === row.id }"
-              @click="focus = row.id"
-            >{{ row.name }}</button>
-          </div>
-          <template v-if="flow.isDone('deviation')">
-            <p class="block-formula">价格偏差率 =（供应商报价 － 综合基准价）/ 综合基准价 × 100%</p>
+          <template v-if="imported">
             <div class="score-table-wrap">
-              <table class="calc-table">
+              <table class="calc-table compact center-text">
+                <caption>导入后的价格基准与偏差</caption>
                 <thead>
-                  <tr><th>物资</th><th>综合基准价</th><th>S1 偏差率</th><th>S2 偏差率</th><th>S3 偏差率</th></tr>
+                  <tr><th>物资</th><th>综合基准价</th><th>S1偏差率</th><th>S2偏差率</th><th>S3偏差率</th></tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in rows" :key="row.id" :class="{ active: focus === row.id }" @click="focus = row.id">
-                    <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
+                  <tr v-for="row in rows" :key="row.id">
+                    <th scope="row">{{ row.name }}</th>
                     <td>{{ num(row.baseline, 2) }}</td>
-                    <td
-                      v-for="item in row.deviations"
-                      :key="item.supplierId"
-                      :class="item.rate > 0 ? 'negative' : 'positive'"
-                    >{{ signedPercent(item.rate, 2) }}</td>
+                    <td v-for="item in row.deviations" :key="item.supplierId">{{ signedPercent(item.rate, 2) }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div v-if="current" class="calc-subhead"><h3>{{ current.name }}逐家演算</h3></div>
-            <ul v-if="current" class="formula-list">
-              <li v-for="item in current.deviations" :key="item.supplierId">
-                {{ item.supplierId }}{{ current.name }}偏差率 = ({{ num(item.quote, 2) }} － {{ num(current.baseline, 2) }}) / {{ num(current.baseline, 2) }} × 100% = {{ signedPercent(item.rate, 2) }}
-              </li>
-            </ul>
+            <p class="sys-toast">测算结果已导入，可设置采购控制阈值。</p>
           </template>
         </template>
 
-        <!-- 价格分析 → 成果发布 → 价格基准上架 -->
-        <template v-else-if="leaf === 'platform'">
+        <template v-else-if="leaf === 'threshold'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="run('platform', checkPlatform)">
-              写入控制平台
-            </button>
+            <button type="button" class="primary-button" @click="saveThreshold">输出控制规则</button>
           </div>
-          <p class="form-desc">阈值写入后，合同变更、紧急分单或商超临时补货均须重新校验。须其余功能页办理完成后，方可上架。</p>
+          <p class="form-desc">第三步：设置采购控制阈值。</p>
+          <p class="block-formula">价格偏差率 =（当前报价－控制基准价）÷控制基准价 ×100%</p>
           <div class="input-row">
-            <label>黄色预警阈值</label>
-            <input v-model.number="thresholds.yellow" type="number" min="0" step="0.5" />
-            <span class="input-unit">%</span>
+            <label>偏差率＜5%：绿色，正常</label>
+            <input v-model.number="thresholds.yellow" type="number" min="0" class="student-input" />
+            <span class="input-unit">% 黄灯起点</span>
           </div>
           <div class="input-row">
-            <label>红色预警阈值</label>
-            <input v-model.number="thresholds.red" type="number" min="0" step="0.5" />
-            <span class="input-unit">%</span>
+            <label>偏差率≥10%：红色预警</label>
+            <input v-model.number="thresholds.red" type="number" min="0" class="student-input" />
+            <span class="input-unit">% 红灯起点</span>
           </div>
-          <template v-if="flow.isDone('platform')">
-            <p class="sys-toast">
-              4 类合同物资价格基准与 2 类生活保障直采控制价已写入采购控制平台，黄色预警阈值 {{ num(thresholds.yellow, 2) }}%、红色预警阈值 {{ num(thresholds.red, 2) }}%。
-            </p>
+          <ul class="sys-lines">
+            <li>偏差率＜5%：绿灯正常</li>
+            <li>偏差率≥5%且＜10%：黄灯重点关注</li>
+            <li>偏差率≥10%：🔴 重点复核</li>
+          </ul>
+          <template v-if="flow.isDone('threshold')">
             <div class="score-table-wrap">
-              <table class="calc-table compact">
+              <table class="calc-table compact center-text">
                 <thead>
-                  <tr><th>物资</th><th>供应商</th><th>报价</th><th>偏差率</th><th>平台处置</th></tr>
+                  <tr><th>物资</th><th>供应商</th><th>报价</th><th>偏差率</th><th>灯号</th></tr>
                 </thead>
                 <tbody>
-                  <tr v-for="item in alerts" :key="item.key">
-                    <th scope="row">{{ item.material }}<em class="row-unit">{{ item.unit }}</em></th>
-                    <td>{{ item.supplierId }}</td>
-                    <td>{{ num(item.quote, 2) }}</td>
-                    <td :class="item.rate > 0 ? 'negative' : 'positive'">{{ signedPercent(item.rate, 2) }}</td>
-                    <td><span class="verdict" :class="levelClass(item.rate)">{{ levelText(item.rate) }}</span></td>
-                  </tr>
+                  <template v-for="row in rows" :key="row.id">
+                    <tr v-for="(item, index) in row.deviations" :key="item.supplierId">
+                      <th v-if="index === 0" scope="row" :rowspan="row.deviations.length">{{ row.name }}</th>
+                      <td>{{ item.supplierId }}</td>
+                      <td>{{ num(item.quote, 2) }}</td>
+                      <td>{{ signedPercent(item.rate, 2) }}</td>
+                      <td><span class="verdict" :class="lamp(item.rate).cls">{{ lamp(item.rate).text }}</span></td>
+                    </tr>
+                  </template>
                 </tbody>
               </table>
             </div>
-            <p v-if="!alerts.length" class="empty-hint">当前阈值下无报价触发预警。</p>
-
-            <div class="calc-subhead"><h3>2 类生活保障物资直采控制价核验</h3></div>
-            <table class="calc-table compact">
-              <thead>
-                <tr><th>物资</th><th>历史价</th><th>市场参考价</th><th class="col-total">直采控制价</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in directQuotes" :key="row.id">
-                  <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
-                  <td>{{ num(row.history, 2) }}</td>
-                  <td>{{ num(row.market, 2) }}</td>
-                  <td class="col-total">{{ money(row.control, 2) }}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <p class="conclusion">
-              S3 报价有效，但经济性较弱，列为高价备选供应商，不直接判定为违规报价。
-            </p>
-            <div class="calc-subhead"><h3>输出文档</h3></div>
+            <p class="sys-toast">已输出四份控制成果。</p>
             <div class="tag-row">
-              <span v-for="item in OUTPUTS" :key="item" class="soft-tag">{{ item }}</span>
+              <span v-for="item in PRICE_OUTPUTS" :key="item" class="soft-tag">{{ item }}</span>
             </div>
           </template>
         </template>

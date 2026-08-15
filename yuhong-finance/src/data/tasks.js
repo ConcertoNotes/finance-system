@@ -43,7 +43,7 @@ export const roleTaskIndex = roles.map((role) => ({
   total: getRoleTaskCount(role.id),
 }))
 
-/** 全流程任务序列：第一阶段 8 个在前，第二阶段 6 个接续为 9—14。 */
+/** 全流程任务序列：第一阶段 8 个在前，第二阶段 5 个接续为 9—13。 */
 export const allTasksInOrder = tasks
   .slice()
   .sort((a, b) => a.stage - b.stage || a.no - b.no)

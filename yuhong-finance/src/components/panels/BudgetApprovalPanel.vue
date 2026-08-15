@@ -76,8 +76,12 @@ const notice = reactive({
   project: '',
   document: '',
 })
+const noticeFileKey = ref(0)
 
-const funds = reactive(fiscalAtHalfHour.map((row) => ({ ...row, arrivedInput: '' })))
+const funds = reactive(fiscalAtHalfHour.map((row) => ({
+  ...row,
+  arrivedInput: row.status === '已到账' ? String(row.arrived) : '',
+})))
 const fundBasis = ref('')
 const selectedPlan = ref('')
 const controlMode = ref('')
@@ -118,8 +122,13 @@ function checkRegister() {
   if (notice.effective.trim() !== '灾后0.5h') return '生效时间须为灾后0.5h'
   if (notice.status !== '已确认') return '通知状态须为已确认'
   if (notice.project !== '洪涝应急救援专项') return '须关联洪涝应急救援专项项目'
-  if (!notice.document.includes('III级')) return '须关联《III级应急响应通知》'
+  if (!notice.document) return '请上传《III级应急响应通知》附件'
   return ''
+}
+
+function onNoticeFile(event) {
+  const file = event.target.files?.[0]
+  notice.document = file ? file.name : ''
 }
 
 function checkFunds() {
@@ -170,8 +179,13 @@ function resetAll() {
     project: '',
     document: '',
   })
+  noticeFileKey.value += 1
   funds.forEach((row, index) => {
-    Object.assign(row, { ...fiscalAtHalfHour[index], arrivedInput: '' })
+    const source = fiscalAtHalfHour[index]
+    Object.assign(row, {
+      ...source,
+      arrivedInput: source.status === '已到账' ? String(source.arrived) : '',
+    })
   })
   fundBasis.value = ''
   selectedPlan.value = ''
@@ -240,10 +254,17 @@ function resetAll() {
           </div>
           <div class="form-row">
             <label class="form-item">
-              <span class="form-label required">上传或关联</span>
-              <input v-model="notice.document" class="form-control" placeholder="III级应急响应通知" />
+              <span class="form-label required">上传附件</span>
+              <input
+                :key="noticeFileKey"
+                class="form-control"
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx"
+                @change="onNoticeFile"
+              />
             </label>
           </div>
+          <p v-if="notice.document" class="form-desc">已选择附件：{{ notice.document }}</p>
           <template v-if="flow.isDone('register')">
             <p class="sys-toast">III 级应急响应通知已确认接收，并与洪涝应急救援专项项目关联。</p>
           </template>
@@ -280,7 +301,8 @@ function resetAll() {
               <tr v-for="row in funds" :key="row.id">
                 <th scope="row">{{ row.id }}</th>
                 <td>{{ money(row.plan, 0) }}</td>
-                <td><input v-model="row.arrivedInput" type="number" min="0" step="10000" /></td>
+                <td v-if="row.status === '已到账'">{{ money(Number(row.arrivedInput) || row.arrived, 0) }}</td>
+                <td v-else><input v-model="row.arrivedInput" type="number" min="0" step="10000" /></td>
                 <td>{{ row.status }}</td>
               </tr>
             </tbody>

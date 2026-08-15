@@ -5,6 +5,7 @@ import { insuranceProducts } from '../src/data/insurance.js'
 import { disasterGrids } from '../src/data/costDriver.js'
 import { abcPlans } from '../src/data/abcBudget.js'
 import { PLAN_C_BUDGET_CAP, splitModel } from '../src/data/procurement.js'
+import { rmbUpper } from '../src/domain/format.js'
 import { getInsuranceDecision, scoreInsurance, standardizeScores } from '../src/domain/insurance.js'
 import { calculateBudgetSummary, calculateGridBudgets } from '../src/domain/costDriver.js'
 import { coverageRate, summarizeAbcPlans, unitBenefitCost } from '../src/domain/abcBudget.js'
@@ -143,6 +144,11 @@ test('供应商 SUMPRODUCT 综合得分复现任务3', () => {
   near(rows.find((r) => r.id === 'S2').total, 88.3)
   near(rows.find((r) => r.id === 'S3').total, 67.1)
   assert.ok(rows.find((r) => r.id === 'S2').selected)
+})
+
+test('合同与直采金额大写复现当前阶段二合同文本', () => {
+  assert.equal(rmbUpper(932460), '玖拾叁万贰仟肆佰陆拾元整')
+  assert.equal(rmbUpper(149397.5), '壹拾肆万玖仟叁佰玖拾柒元伍角整')
 })
 
 test('初始合同金额与预算占用率复现任务4', () => {

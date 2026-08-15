@@ -68,7 +68,7 @@ const activeId = ref('')
 const error = ref('')
 
 const PROJECT_OPTIONS = ['洪涝应急救援专项项目', '日常业务项目']
-const MATERIAL_OPTIONS = ['帐篷', '食品', '饮用水', '棉被', '冲锋舟', '急救包', '救生衣']
+const MATERIAL_OPTIONS = ['帐篷', '食品', '饮用水', '棉被', '急救包', '救生衣']
 const AUX_LEVELS = ['洪涝应急救援专项', '网格', '物资/费用项目']
 
 const form = reactive({
@@ -329,44 +329,16 @@ function resetAll() {
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="save('fund-category', () => {
-                if (!strictFunds['限定性社会捐赠']) return '限定性捐赠必须开启用途强制校验'
-                if (!fundAttrs.limitedUse) return '请设置是否限定用途'
-                if (!chosenLimitGrids.length) return '请勾选限定使用网格'
-                if (!chosenMaterials.length) return '请勾选限定物资类别'
+                if (!fundAttrs.limitedUse) return '请勾选是否限定用途'
+                if (chosenLimitGrids.length !== 9) return '请勾选全部限定使用网格甲1—甲9'
+                if (chosenMaterials.length !== MATERIAL_OPTIONS.length) return '限定物资类别只保留帐篷、食品、饮用水、棉被、急救包、救生衣，请全部勾选'
                 if (!fundAttrs.arrivalTime || !fundAttrs.payableTime) return '请填写到账时间与可支付时间'
                 if (fundAttrs.balance === '' || fundAttrs.balance == null) return '请填写当前可用余额'
+                strictFunds['限定性社会捐赠'] = true
                 return ''
               })">保存</button>
           </div>
-          <table class="calc-table compact">
-            <thead><tr><th>资金来源标签</th><th style="width: 180px">用途强制校验</th></tr></thead>
-            <tbody>
-              <tr v-for="n in fundNames" :key="n" :class="{ active: n === '限定性社会捐赠' }">
-                <th scope="row">{{ n }}</th>
-                <td>
-                  <label class="checkbox-item inline">
-                    <input v-model="strictFunds[n]" type="checkbox" />
-                    {{ strictFunds[n] ? '开启' : '关闭' }}
-                  </label>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="form-desc">其中</p>
-          <div class="download-card">
-            <div>
-              <strong>限定性捐赠 → 开启「用途强制校验」</strong>
-              <p>限定性社会捐赠必须开启。后续付款用途与捐赠协议不一致时，系统自动预警并阻断支付。</p>
-            </div>
-            <button
-              type="button"
-              class="primary-button"
-              @click="strictFunds['限定性社会捐赠'] = true"
-            >
-              {{ strictFunds['限定性社会捐赠'] ? '已开启' : '开启用途强制校验' }}
-            </button>
-          </div>
-          <p class="form-desc">进一步设置资金使用属性</p>
+          <p class="form-desc">进一步设置资金使用属性。本页只办理下面 6 项，不再另开用途强制校验入口。</p>
           <div class="checkbox-group">
             <label class="checkbox-item">
               <input v-model="fundAttrs.limitedUse" type="checkbox" />是否限定用途
@@ -399,9 +371,11 @@ function resetAll() {
             </label>
           </div>
           <template v-if="flow.isDone('fund-category')">
-            <p class="sys-toast">5 类资金来源标签已建立，{{ strictList.length }} 类开启用途强制校验。</p>
+            <p class="sys-toast">资金使用属性已保存。勾选限定用途后，限定性捐赠自动开启用途强制校验。</p>
             <ul class="sys-lines">
-              <li v-for="n in strictList" :key="n" class="warn">{{ n }} · 付款用途与协议不一致时自动预警并阻断支付</li>
+              <li>限定使用网格：{{ chosenLimitGrids.join('、') }}</li>
+              <li>限定物资类别：{{ chosenMaterials.join('、') }}</li>
+              <li>到账时间 {{ fundAttrs.arrivalTime }}，可支付时间 {{ fundAttrs.payableTime }}，当前可用余额 {{ fundAttrs.balance }}</li>
             </ul>
           </template>
         </template>

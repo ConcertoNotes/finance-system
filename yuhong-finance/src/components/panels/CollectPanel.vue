@@ -504,7 +504,7 @@ function startRun() {
 
 function exportError() {
   if (pendingPages.value.length) {
-    return `还有 ${pendingPages.value.length} 个功能页未办理，采集系统尚未搭建完成，无法导出标准化数据源`
+    return `还有 ${pendingPages.value.length} 个功能页未办理，采集系统尚未建设完成，无法导出标准化数据源`
   }
   if (chosenExports.value.length < exportItems.length) {
     return `还有 ${exportItems.length - chosenExports.value.length} 项导出留痕未勾选`

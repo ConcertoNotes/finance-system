@@ -1,70 +1,40 @@
 <script setup>
-// 应急采购管理系统 · 合同物资供应商综合评分与初始遴选。
-// 菜单路径与工作簿一致，学生需逐级点开菜单进入对应功能页办理业务。
+// 按当前《洪涝阶段二.xlsx》任务3：三张可复制评分表 + 三岗复核。
 import { computed, reactive, ref } from 'vue'
 import PanelShell from './PanelShell.vue'
 import SystemShell from '../system/SystemShell.vue'
 import { useTaskFlow } from '../../composables/useTaskFlow.js'
 import { useFormPersist } from '../../composables/useFormPersist.js'
-import { materialDemands, supplierCriteria, suppliers } from '../../data/procurement.js'
+import { SUPPLIER_NOTES, supplierCriteria, suppliers } from '../../data/procurement.js'
+import { copyTsv } from '../../domain/clipboard.js'
 import { calculatePriceBaseline, scoreSuppliers } from '../../domain/procurement.js'
 import { money, num, percent } from '../../domain/format.js'
 
-const PAGES = ['scope', 'weights', 'score', 'budget', 'risk', 'approve']
+const PAGES = ['score', 'budget', 'risk', 'approve']
 const flow = useTaskFlow('s2-t3', PAGES)
 const store = useFormPersist('s2-t3')
 
 const menu = [
   {
-    id: 'm-proc',
-    label: '采购管理',
-    children: [
-      {
-        id: 'm-proc-supplier',
-        label: '供应商管理',
-        children: [{ id: 'scope', label: '遴选范围确认' }],
-      },
-    ],
-  },
-  {
-    id: 'm-base',
-    label: '基础设置',
-    children: [
-      {
-        id: 'm-base-criteria',
-        label: '评价指标',
-        children: [{ id: 'weights', label: '权重配置' }],
-      },
-    ],
-  },
-  {
     id: 'm-eval',
     label: '供应商评价',
     children: [
       { id: 'score', label: '综合评分' },
-      { id: 'budget', label: '预算符合性核验' },
-      { id: 'risk', label: '主体资质核验' },
-      { id: 'approve', label: '中选审批' },
+      { id: 'budget', label: '预算和网格保障复核' },
+      { id: 'risk', label: '核验S2相关资质' },
+      { id: 'approve', label: '审批S2作为供应商' },
     ],
   },
 ]
 
-const leafLabels = {}
-function collectLeaves(nodes) {
-  nodes.forEach((node) => (node.children ? collectLeaves(node.children) : (leafLabels[node.id] = node.label)))
-}
-collectLeaves(menu)
-
-const VERIFY_ITEMS = [
-  '营业资质：营业执照、经营范围与供货能力证明齐备',
-  '收款账户：合同主体、发票主体与收款账户三者一致',
-  '关联关系：与本单位及其他报价供应商无关联交易',
-  '历史付款记录：既往结算无欠款、无违约扣款记录',
+const RISK_ITEMS = [
+  { key: 'license', label: '营业资质', ok: '有效' },
+  { key: 'party', label: '合同主体', ok: '一致' },
+  { key: 'invoice', label: '发票主体', ok: '一致' },
+  { key: 'account', label: '收款账户', ok: '一致' },
+  { key: 'related', label: '关联交易', ok: '无预警' },
+  { key: 'history', label: '历史付款', ok: '无异常' },
 ]
-
-function emptyWeights() {
-  return Object.fromEntries(supplierCriteria.map((item) => [item.key, '']))
-}
 
 function emptyScores() {
   return suppliers.map((item) => ({
@@ -74,60 +44,29 @@ function emptyScores() {
   }))
 }
 
-const weights = reactive(emptyWeights())
 const scores = reactive(emptyScores())
-const verified = reactive(Object.fromEntries(VERIFY_ITEMS.map((item) => [item, false])))
+const verified = reactive(Object.fromEntries(RISK_ITEMS.map((item) => [item.key, false])))
 const approval = reactive({ primary: '', backup1: '', backup2: '' })
-
 const activeId = ref('')
 const error = ref('')
-
-const scopeRows = computed(() =>
-  materialDemands.map((item) => ({
-    id: item.id,
-    name: item.name,
-    channel: item.channel === 'contract' ? 'HT-2025-001 合同采购' : '大型商超应急零售/框架协议直采',
-    scored: item.channel === 'contract',
-  })),
-)
-const scopedIn = computed(() => scopeRows.value.filter((row) => row.scored))
-const scopedOut = computed(() => scopeRows.value.filter((row) => !row.scored))
-
-const criteria = computed(() =>
-  supplierCriteria.map((item) => ({ ...item, weight: (Number(weights[item.key]) || 0) / 100 })),
-)
-const weightTotal = computed(() =>
-  supplierCriteria.reduce((sum, item) => sum + (Number(weights[item.key]) || 0), 0),
-)
+const copied = ref('')
 
 const scoredList = computed(() =>
   scores.map((item) => ({
     ...item,
-    ...Object.fromEntries(
-      supplierCriteria.map((criterion) => [criterion.key, Number(item[criterion.key]) || 0]),
-    ),
+    ...Object.fromEntries(supplierCriteria.map((criterion) => [criterion.key, Number(item[criterion.key]) || 0])),
   })),
 )
-const rows = computed(() => scoreSuppliers(scoredList.value, criteria.value))
+const rows = computed(() => scoreSuppliers(scoredList.value, supplierCriteria))
 const ranked = computed(() => [...rows.value].sort((a, b) => a.rank - b.rank))
 const winner = computed(() => ranked.value[0])
+const tent = computed(() => calculatePriceBaseline().find((row) => row.id === 'tent'))
+const pendingPages = computed(() => PAGES.filter((id) => id !== 'approve' && !flow.isDone(id)))
 
-const tentBaseline = computed(() => calculatePriceBaseline().find((row) => row.id === 'tent'))
-const winnerTentQuote = computed(() => {
-  const row = tentBaseline.value
-  const quotes = { S1: row.s1, S2: row.s2, S3: row.s3 }
-  return quotes[winner.value.id] ?? row.s2
-})
-const priceGap = computed(() => winnerTentQuote.value - tentBaseline.value.baseline)
-const gapWord = computed(() => (priceGap.value <= 0 ? '低于' : '高于'))
-
-const chosenVerify = computed(() => VERIFY_ITEMS.filter((item) => verified[item]))
-const pendingPages = computed(() => PAGES.filter((p) => p !== 'approve' && !flow.isDone(p)).map((id) => leafLabels[id]))
-
-store.restore({ weights, scores, verified, approval })
+store.restore({ scores, verified, approval })
 
 function snapshot() {
-  return { weights, scores, verified, approval }
+  return { scores, verified, approval }
 }
 
 function save(id, check) {
@@ -141,12 +80,6 @@ function save(id, check) {
   flow.complete(id)
 }
 
-function checkWeights() {
-  if (supplierCriteria.some((item) => !(Number(weights[item.key]) >= 0))) return '各维度权重须为非负数'
-  if (Math.abs(weightTotal.value - 100) > 0.01) return `六个维度权重合计为 ${num(weightTotal.value, 2)}%，须调整为 100%`
-  return ''
-}
-
 function checkScores() {
   const invalid = scores.filter((item) =>
     supplierCriteria.some((criterion) => {
@@ -158,32 +91,48 @@ function checkScores() {
   return ''
 }
 
-function checkVerify() {
-  const rest = VERIFY_ITEMS.length - chosenVerify.value.length
-  return rest ? `还有 ${rest} 项主体资质未核验` : ''
+function checkRisk() {
+  const rest = RISK_ITEMS.filter((item) => !verified[item.key])
+  return rest.length ? `还有 ${rest.length} 项资质未核验` : ''
 }
 
 function checkApproval() {
-  if (pendingPages.value.length) {
-    return `还有 ${pendingPages.value.length} 个功能页未办理：${pendingPages.value.join('、')}，无法提交中选审批`
-  }
+  if (pendingPages.value.length) return `还有 ${pendingPages.value.length} 个功能页未办理，无法审批`
   const picks = [approval.primary, approval.backup1, approval.backup2]
   if (picks.some((item) => !item)) return '主供应商、第一备选和第二备选均须指定'
   if (new Set(picks).size !== 3) return '同一供应商不得同时占据两个定位'
-  if (approval.primary !== winner.value.id) {
-    return `综合得分最高的是 ${winner.value.id}（${money(winner.value.total, 1)} 分），主供应商应定位为 ${winner.value.id}`
-  }
+  if (approval.primary !== winner.value.id) return `综合得分最高的是 ${winner.value.id}，主供应商应定位为 ${winner.value.id}`
   return ''
+}
+
+async function copyTables() {
+  const weightRows = [['评分维度', '权重'], ...supplierCriteria.map((item) => [item.label, percent(item.weight, 0)]), ['权重合计', '100%']]
+  const scoreRows = [
+    ['供应商', ...supplierCriteria.map((item) => item.label)],
+    ...rows.value.map((row) => [row.id, ...row.parts.map((part) => part.score)]),
+  ]
+  const weightedRows = [
+    ['供应商', ...supplierCriteria.map((item) => `${item.label}贡献`), '综合得分', '排名', '说明'],
+    ...ranked.value.map((row) => [
+      row.id,
+      ...row.parts.map((part) => num(part.weighted, 1)),
+      money(row.total, 1),
+      row.rank,
+      SUPPLIER_NOTES[row.id],
+    ]),
+  ]
+  await copyTsv([...weightRows, [], ...scoreRows, [], ...weightedRows])
+  copied.value = '三张评分表已复制，可粘贴到 Excel'
 }
 
 function resetAll() {
   flow.reset()
   store.clear()
-  Object.assign(weights, emptyWeights())
   scores.splice(0, scores.length, ...emptyScores())
-  VERIFY_ITEMS.forEach((item) => { verified[item] = false })
+  RISK_ITEMS.forEach((item) => { verified[item.key] = false })
   Object.assign(approval, { primary: '', backup1: '', backup2: '' })
   error.value = ''
+  copied.value = ''
 }
 </script>
 
@@ -200,207 +149,107 @@ function resetAll() {
       @reset="resetAll"
     >
       <template #default="{ leaf }">
-        <!-- 采购管理 → 供应商管理 → 遴选范围确认 -->
-        <template v-if="leaf === 'scope'">
+        <template v-if="leaf === 'score'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="save('scope')">
-              确认评分范围
-            </button>
+            <button type="button" class="primary-button" @click="save('score', checkScores)">计算综合得分</button>
+            <button type="button" class="ghost-button" @click="copyTables">复制三张表到 Excel</button>
           </div>
-          <table class="calc-table compact">
-            <thead>
-              <tr><th>物资</th><th>采购执行路径</th><th style="width: 150px">是否纳入供应商评分</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in scopeRows" :key="row.id">
-                <th scope="row">{{ row.name }}</th>
-                <td>{{ row.channel }}</td>
-                <td>
-                  <span class="verdict" :class="row.scored ? 'pass' : 'neutral'">{{ row.scored ? '纳入' : '不纳入' }}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="form-desc">食品、饮用水通过大型商超应急零售/框架协议直采，不与主合同打包，因此不参与本次供应商综合遴选。</p>
-          <template v-if="flow.isDone('scope')">
-            <p class="sys-toast">评分范围已确认：{{ scopedIn.length }} 类合同采购物资纳入供应商综合评分。</p>
-            <div class="tag-row">
-              <span v-for="row in scopedIn" :key="row.id" class="soft-tag">{{ row.name }}</span>
-            </div>
-            <ul class="sys-lines">
-              <li class="info">{{ scopedOut.map((row) => row.name).join('、') }} 通过大型商超应急零售/框架协议直采，排除在评分范围之外</li>
-              <li>报价得分按 4 类合同物资综合报价测算</li>
-            </ul>
-          </template>
-        </template>
-
-        <!-- 基础设置 → 评价指标 → 权重配置 -->
-        <template v-else-if="leaf === 'weights'">
-          <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="save('weights', checkWeights)">
-              保存权重
-            </button>
-          </div>
-          <table class="calc-table compact">
-            <thead>
-              <tr><th>评分维度</th><th style="width: 140px">权重（%）</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in supplierCriteria" :key="item.key">
-                <th scope="row">{{ item.label }}</th>
-                <td><input v-model.number="weights[item.key]" type="number" min="0" max="100" /></td>
-              </tr>
-              <tr>
-                <th scope="row">合计</th>
-                <td class="col-total">{{ num(weightTotal, 2) }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="form-desc">六个维度权重合计须等于 100%，否则综合得分不可比。</p>
-          <template v-if="flow.isDone('weights')">
-            <p class="sys-toast">评分维度权重已保存，合计 {{ num(weightTotal, 2) }}%。</p>
-            <div class="weight-row">
-              <span v-for="item in criteria" :key="item.key" class="weight-chip">
-                {{ item.label }}<em>{{ percent(item.weight, 0) }}</em>
-              </span>
-            </div>
-          </template>
-        </template>
-
-        <!-- 供应商评价 → 综合评分 -->
-        <template v-else-if="leaf === 'score'">
-          <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="save('score', checkScores)">
-              计算综合得分
-            </button>
+          <p class="form-desc">现进行供应商综合评分。食品、饮用水通过大型商超应急零售/框架协议直采。评分维度为报价40%、交付时间20%、物资质量15%、供应商资质10%、历史履约率10%、运输距离5%。这三张表要能复制到 Excel。</p>
+          <div class="score-table-wrap">
+            <table class="calc-table compact center-text">
+              <caption>评分维度</caption>
+              <thead><tr><th>评分维度</th><th>权重</th></tr></thead>
+              <tbody>
+                <tr v-for="item in supplierCriteria" :key="item.key">
+                  <th scope="row">{{ item.label }}</th>
+                  <td>{{ percent(item.weight, 0) }}</td>
+                </tr>
+                <tr><th scope="row">权重合计</th><td class="col-total">100%</td></tr>
+              </tbody>
+            </table>
           </div>
           <div class="score-table-wrap">
-            <table class="calc-table">
+            <table class="calc-table compact center-text">
+              <caption>供应商报价得分</caption>
               <thead>
                 <tr>
                   <th>供应商</th>
-                  <th v-for="item in criteria" :key="item.key">{{ item.label }}<em>{{ percent(item.weight, 0) }}</em></th>
+                  <th v-for="item in supplierCriteria" :key="item.key">{{ item.label.replace('时间', '').replace('物资', '').replace('供应商', '').replace('率', '') }}得分</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(row, index) in rows" :key="row.id">
                   <th scope="row">{{ row.id }}</th>
-                  <td v-for="item in criteria" :key="item.key">
-                    <input v-model.number="scores[index][item.key]" type="number" min="0" max="100" />
+                  <td v-for="item in supplierCriteria" :key="item.key">
+                    <input v-model.number="scores[index][item.key]" type="number" min="0" max="100" class="student-input" />
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
           <template v-if="flow.isDone('score')">
-            <p class="block-formula">综合得分 = SUMPRODUCT(指标标准分区域, 权重区域)</p>
-            <ul class="breakdown-list">
-              <li v-for="row in ranked" :key="row.id">
-                <div class="breakdown-head">
-                  <span class="breakdown-label">{{ row.id }}</span>
-                  <span class="breakdown-type" :class="row.selected ? 'benefit' : 'cost'">第 {{ row.rank }} 名</span>
-                  <span class="breakdown-raw">{{ money(row.total, 1) }} 分</span>
-                </div>
-                <p class="breakdown-formula">
-                  {{ row.parts.map((part) => `${part.score}×${percent(part.weight, 0)}`).join(' + ') }} = {{ money(row.total, 1) }} 分
-                </p>
-              </li>
-            </ul>
             <div class="score-table-wrap">
-              <table class="calc-table">
+              <table class="calc-table compact center-text">
+                <caption>加权综合得分明细</caption>
                 <thead>
                   <tr>
                     <th>供应商</th>
-                    <th v-for="item in criteria" :key="item.key">{{ item.label }}</th>
-                    <th class="col-total">综合得分</th>
-                    <th>排名</th>
+                    <th v-for="item in supplierCriteria" :key="item.key">{{ item.label }}贡献</th>
+                    <th>综合得分</th><th>排名</th><th>说明</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="row in ranked" :key="row.id" :class="{ winner: row.selected }">
                     <th scope="row">{{ row.id }}</th>
-                    <td v-for="part in row.parts" :key="part.key">{{ part.score }}</td>
+                    <td v-for="part in row.parts" :key="part.key">{{ num(part.weighted, 1) }}</td>
                     <td class="col-total">{{ money(row.total, 1) }}</td>
-                    <td><span class="verdict" :class="row.selected ? 'pass' : 'neutral'">{{ row.rank }}</span></td>
+                    <td>{{ row.rank }}</td>
+                    <td>{{ SUPPLIER_NOTES[row.id] }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <p class="conclusion">
-              形成初始排序：{{ ranked.map((row) => `${row.id} ${money(row.total, 1)}分`).join(' > ') }}。
-            </p>
+            <p class="sys-toast">形成初始排序：{{ ranked.map((row) => `${row.id} ${money(row.total, 1)}分`).join(' > ') }}。</p>
+            <p v-if="copied" class="calc-note">{{ copied }}</p>
           </template>
         </template>
 
-        <!-- 供应商评价 → 预算符合性核验 -->
         <template v-else-if="leaf === 'budget'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="save('budget')">
-              提交复核意见
-            </button>
+            <button type="button" class="primary-button" @click="save('budget')">点击预算校验</button>
           </div>
-          <div class="stat-grid">
-            <div class="stat-cell">
-              <span class="stat-label">{{ winner.id }} 帐篷报价</span>
-              <strong class="stat-value">{{ num(winnerTentQuote, 2) }} 元/顶</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">帐篷综合基准价</span>
-              <strong class="stat-value">{{ num(tentBaseline.baseline, 2) }} 元/顶</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">单价差额</span>
-              <strong class="stat-value" :class="priceGap <= 0 ? 'accent' : 'warn'">{{ num(priceGap, 2) }} 元/顶</strong>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-label">交付承诺</span>
-              <strong class="stat-value small">12 小时送达重点网格</strong>
-            </div>
-          </div>
+          <dl class="block-fields">
+            <div class="field-row"><dt>供应商</dt><dd>{{ winner.id }}</dd></div>
+            <div class="field-row"><dt>帐篷报价</dt><dd>{{ num(tent.s2, 0) }}元/顶</dd></div>
+            <div class="field-row"><dt>综合价格基准</dt><dd>{{ num(tent.baseline, 2) }}元/顶</dd></div>
+            <div class="field-row"><dt>价格偏差率</dt><dd>-1.33%｜正常</dd></div>
+            <div class="field-row"><dt>交付承诺</dt><dd>12小时｜满足重点保障时限</dd></div>
+            <div class="field-row"><dt>重点保障网格</dt><dd>甲3、甲6</dd></div>
+          </dl>
           <template v-if="flow.isDone('budget')">
-            <p class="sys-toast">应急预算绩效岗复核通过。</p>
-            <ul class="sys-lines">
-              <li>{{ winner.id }} 帐篷单价 {{ num(winnerTentQuote, 2) }} 元{{ gapWord }} {{ num(tentBaseline.baseline, 2) }} 元基准价</li>
-              <li>12 小时交付承诺可满足甲3、甲6 重点保障时限</li>
-              <li>初始方案未突破 C 方案预算</li>
-            </ul>
-            <p class="conclusion">
-              从预算和网格保障角度复核：{{ winner.id }} 帐篷单价 {{ num(winnerTentQuote, 2) }} 元{{ gapWord }} {{ num(tentBaseline.baseline, 2) }} 元基准价，
-              12 小时交付承诺可满足甲3、甲6 重点保障时限，初始方案未突破 C 方案预算。
-            </p>
+            <p class="sys-toast">C方案预算校验：未超预算</p>
+            <p class="conclusion">综合结论：初始方案复核通过，可进入合同拟定环节。</p>
           </template>
         </template>
 
-        <!-- 供应商评价 → 主体资质核验 -->
         <template v-else-if="leaf === 'risk'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="save('risk', checkVerify)">
-              提交核验结果
-            </button>
+            <button type="button" class="primary-button" @click="save('risk', checkRisk)">提交核验结果</button>
           </div>
+          <p class="form-desc">供应商：S2</p>
           <div class="checkbox-group">
-            <label v-for="item in VERIFY_ITEMS" :key="item" class="checkbox-item">
-              <input v-model="verified[item]" type="checkbox" />{{ item }}
+            <label v-for="item in RISK_ITEMS" :key="item.key" class="checkbox-item">
+              <input v-model="verified[item.key]" type="checkbox" />{{ item.label }}：✅ {{ item.ok }}
             </label>
           </div>
-          <template v-if="flow.isDone('risk')">
-            <p class="sys-toast">{{ winner.id }} 合同主体、发票主体、收款账户一致，无关联交易预警。</p>
-            <ul class="sys-lines">
-              <li v-for="item in chosenVerify" :key="item">{{ item }}</li>
-            </ul>
-          </template>
+          <p v-if="flow.isDone('risk')" class="conclusion">综合结论：供应商主体及收款账户核验通过，可进入合同及后续付款控制流程。</p>
         </template>
 
-        <!-- 供应商评价 → 中选审批 -->
         <template v-else-if="leaf === 'approve'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="save('approve', checkApproval)">
-              审批通过
-            </button>
+            <button type="button" class="primary-button" @click="save('approve', checkApproval)">审批通过</button>
           </div>
-          <ul v-if="pendingPages.length" class="sys-lines">
-            <li v-for="label in pendingPages" :key="label" class="warn">{{ label }} 尚未办理</li>
-          </ul>
+          <p class="form-desc">HT-2025-001 四类合同物资</p>
           <div class="form-row">
             <label class="form-item">
               <span class="form-label required">主供应商</span>
@@ -410,14 +259,14 @@ function resetAll() {
               </select>
             </label>
             <label class="form-item">
-              <span class="form-label required">第一备选供应商</span>
+              <span class="form-label required">第一备选</span>
               <select v-model="approval.backup1" class="form-control">
                 <option value="">请选择</option>
                 <option v-for="row in ranked" :key="row.id" :value="row.id">{{ row.id }} · {{ money(row.total, 1) }} 分</option>
               </select>
             </label>
             <label class="form-item">
-              <span class="form-label required">第二备选及兜底供应商</span>
+              <span class="form-label required">第二备选</span>
               <select v-model="approval.backup2" class="form-control">
                 <option value="">请选择</option>
                 <option v-for="row in ranked" :key="row.id" :value="row.id">{{ row.id }} · {{ money(row.total, 1) }} 分</option>
@@ -425,20 +274,12 @@ function resetAll() {
             </label>
           </div>
           <template v-if="flow.isDone('approve')">
-            <p class="sys-toast">
-              同意 {{ approval.primary }} 为 HT-2025-001 四类合同物资唯一初始主供应商，{{ approval.backup1 }} 第一备选，{{ approval.backup2 }} 第二备选兼极端情况兜底。
-            </p>
             <ul class="sys-lines">
-              <li>{{ approval.primary }} · 唯一初始主供应商，承担{{ scopedIn.map((row) => row.name).join('、') }}四类合同物资</li>
-              <li class="info">{{ approval.backup1 }} · 第一备选供应商</li>
-              <li class="info">{{ approval.backup2 }} · 第二备选和极端情况下的兜底供应商</li>
-              <li class="warn">备选供应商在主供应商出现库存、交付等异常后方启动，不参与初始合同分单</li>
-              <li class="warn">{{ scopedOut.map((row) => row.name).join('、') }}按应急零售/框架协议直采执行，不随主供应商打包</li>
+              <li>主供应商：S2｜状态：🟢 已启用 · 综合得分 88.3分 · 执行范围：帐篷、棉被、救生衣、急救包</li>
+              <li>第一备选：S1｜状态：🟡 待命 · 启动条件：S2出现库存不足、交付延迟等履约异常</li>
+              <li>第二备选：S3｜状态：⚪ 兜底待命 · 启动条件：S2、S1均无法满足极端应急保障需求</li>
+              <li>食品、饮用水：大型商超应急零售/框架协议直采｜不纳入HT-2025-001主合同</li>
             </ul>
-            <p class="conclusion">
-              合同采购和生活保障直采方案审批通过。4 类合同物资进入供应商履约动态监测，
-              {{ scopedOut.map((row) => row.name).join('、') }}按应急零售/框架协议直采台账跟踪。
-            </p>
           </template>
         </template>
       </template>

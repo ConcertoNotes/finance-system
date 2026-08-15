@@ -4,14 +4,18 @@ import { useRouter } from 'vue-router'
 import { INSURANCE_WORKBOOK, insuranceCriteria, insuranceProducts } from '../data/insurance.js'
 import { COST_DRIVER_WORKBOOK, budgetParameters, disasterGrids } from '../data/costDriver.js'
 import { ABC_WORKBOOK, abcPlans, compareConclusions } from '../data/abcBudget.js'
+import { PRICE_WORKBOOK, priceQuotes } from '../data/procurement.js'
 import { getInsuranceDecision } from '../domain/insurance.js'
 import { calculateBudgetSummary } from '../domain/costDriver.js'
 import { summarizeAbcPlans } from '../domain/abcBudget.js'
-import { money, num } from '../domain/format.js'
+import { calculatePriceBaseline, getDirectControlPrices } from '../domain/procurement.js'
+import { money, num, signedPercent } from '../domain/format.js'
 
 const router = useRouter()
-const imported = ref({ insurance: false, costDriver: false, abcBudget: false })
+const imported = ref({ insurance: false, costDriver: false, abcBudget: false, price: false })
 const abcRows = computed(() => summarizeAbcPlans())
+const priceRows = computed(() => calculatePriceBaseline())
+const directPrices = computed(() => getDirectControlPrices())
 
 const decision = computed(() => getInsuranceDecision())
 const summary = computed(() => calculateBudgetSummary())
@@ -37,9 +41,17 @@ const workbooks = [
     id: 'abcBudget',
     file: ABC_WORKBOOK,
     title: 'ABC三受灾等级预算计算表',
-    usedBy: { label: '编制A、B、C三受灾等级预算', roleId: 'budget-performance', taskKey: 's1-t6' },
+    usedBy: { label: '编制ABC等级预算', roleId: 'budget-performance', taskKey: 's1-t6' },
     sheets: ['ABC三方案预算'],
     blocks: ['三方案基础参数', '预算测算与关键指标', '保障内容对比', '预算增量来源'],
+  },
+  {
+    id: 'price',
+    file: PRICE_WORKBOOK,
+    title: '分层采购价格基准计算表',
+    usedBy: { label: '建立分层采购价格基准', roleId: 'procurement', taskKey: 's2-t2' },
+    sheets: ['分层采购价格基准'],
+    blocks: ['价格数据采集', '4类合同物资价格基准', '2类生活保障直采核验', '价格偏差分析', '报价口径校验'],
   },
 ]
 
@@ -54,7 +66,7 @@ function downloadUrl(file) {
       <div class="page-title-main">
         <h1 class="page-title">补充数据表</h1>
         <p class="page-subtitle">
-          三份计算表分别是保险方案比较、成本动因转换与 A/B/C 三受灾等级预算的数据底稿。工作簿原文标注「弄到平台，学生可以下载」「点击导入，点完平台呈现效果」，此处提供下载与导入演示。
+          四份计算表分别是保险方案比较、成本动因转换、ABC 等级预算与分层采购价格基准的数据底稿。工作簿原文标注「弄到平台，学生可以下载」「点击导入，点完平台呈现效果」，此处提供下载与导入演示。
         </p>
       </div>
     </header>
@@ -224,6 +236,13 @@ function downloadUrl(file) {
                   <td>{{ num(abcRows[2].unitCost, 2) }}</td>
                   <td>{{ compareConclusions.unitCost }}</td>
                 </tr>
+                <tr>
+                  <th scope="row">适用灾情</th>
+                  <td>{{ abcPlans[0].applicable }}</td>
+                  <td>{{ abcPlans[1].applicable }}</td>
+                  <td>{{ abcPlans[2].applicable }}</td>
+                  <td>{{ compareConclusions.applicable }}</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -233,6 +252,82 @@ function downloadUrl(file) {
               <strong class="stat-value">{{ money(row.total, row.id === 'C' ? 1 : 0) }} 元</strong>
             </div>
           </div>
+        </template>
+
+        <template v-if="imported[book.id] && book.id === 'price'">
+          <div class="calc-subhead"><h3>导入结果 · 价格数据采集</h3></div>
+          <div class="score-table-wrap">
+            <table class="calc-table compact">
+              <thead>
+                <tr>
+                  <th>物资</th><th>采购路径</th><th>历史价</th><th>市场参考价</th>
+                  <th>S1</th><th>S2</th><th>S3 / 直采控制价</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in priceQuotes" :key="row.id">
+                  <th scope="row">{{ row.name }}<em class="row-unit">{{ row.unit }}</em></th>
+                  <td>{{ row.channel === 'contract' ? '合同采购' : '应急零售/框架协议直采' }}</td>
+                  <td>{{ num(row.history, 2) }}</td>
+                  <td>{{ num(row.market, 2) }}</td>
+                  <td>{{ row.channel === 'contract' ? num(row.s1, 2) : '—' }}</td>
+                  <td>{{ row.channel === 'contract' ? num(row.s2, 2) : '—' }}</td>
+                  <td>{{ row.channel === 'contract' ? num(row.s3, 2) : money(row.control, 2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="calc-subhead"><h3>导入结果 · 4类合同物资价格基准</h3></div>
+          <div class="score-table-wrap">
+            <table class="calc-table compact">
+              <thead>
+                <tr>
+                  <th>物资</th><th>平均价</th><th>中位数</th><th>报价区间</th><th class="col-total">综合基准价</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in priceRows" :key="row.id">
+                  <th scope="row">{{ row.name }}</th>
+                  <td>{{ num(row.average, 2) }}</td>
+                  <td>{{ num(row.median, 2) }}</td>
+                  <td>{{ num(row.low, 2) }} — {{ num(row.high, 2) }}</td>
+                  <td class="col-total">{{ num(row.baseline, 2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="calc-subhead"><h3>导入结果 · 价格偏差</h3></div>
+          <div class="score-table-wrap">
+            <table class="calc-table compact">
+              <thead>
+                <tr><th>物资</th><th>综合基准价</th><th>S1 偏差率</th><th>S2 偏差率</th><th>S3 偏差率</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in priceRows" :key="row.id">
+                  <th scope="row">{{ row.name }}</th>
+                  <td>{{ num(row.baseline, 2) }}</td>
+                  <td v-for="item in row.deviations" :key="item.supplierId">{{ signedPercent(item.rate, 2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="calc-subhead"><h3>导入结果 · 2类生活保障直采控制价</h3></div>
+          <table class="calc-table compact">
+            <thead>
+              <tr><th>物资</th><th>历史价</th><th>市场参考价</th><th class="col-total">直采控制价</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in directPrices" :key="row.id">
+                <th scope="row">{{ row.name }}</th>
+                <td>{{ num(row.history, 2) }}</td>
+                <td>{{ num(row.market, 2) }}</td>
+                <td class="col-total">{{ money(row.control, 2) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </template>
       </div>
     </section>

@@ -2787,6 +2787,12 @@ input[type='number'],
   cursor: not-allowed;
 }
 
+.form-control[type="file"] {
+  height: auto;
+  padding: 6px 10px;
+  line-height: 1.4;
+}
+
 .checkbox-group {
   display: flex;
   flex-wrap: wrap;
@@ -3381,6 +3387,101 @@ input[type='number'],
   color: var(--muted);
 }
 
+.insurance-brief .brief-doc {
+  gap: 0;
+  padding: 28px 32px 24px;
+}
+
+.insurance-brief .brief-hero {
+  padding-bottom: 22px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.insurance-brief .brief-kicker {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.insurance-brief .brief-title {
+  margin: 0 0 14px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.insurance-brief .brief-lead {
+  margin: 0 0 8px;
+  max-width: 46em;
+  line-height: 1.75;
+  color: var(--muted);
+}
+
+.insurance-brief .brief-lead:last-child {
+  margin-bottom: 0;
+}
+
+.insurance-brief .brief-section {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.insurance-brief .brief-section:last-of-type {
+  border-bottom: 0;
+}
+
+.insurance-brief .brief-subhead {
+  margin: 0 0 14px;
+  padding-left: 10px;
+  border-left: 3px solid var(--accent);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.insurance-brief .brief-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-alt);
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.insurance-brief .brief-score {
+  width: min(560px, 100%);
+}
+
+.insurance-brief .brief-rules {
+  margin: 0;
+  padding-left: 1.3em;
+  line-height: 1.85;
+}
+
+.insurance-brief .brief-rules li + li {
+  margin-top: 6px;
+}
+
+.insurance-brief .download-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18px;
+  margin-top: 4px;
+}
+
+.insurance-brief .file-link {
+  color: var(--accent);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.insurance-brief .file-link:hover {
+  color: var(--accent-strong);
+}
+
 .code-editor {
   display: flex;
   flex-direction: column;
@@ -3504,4 +3605,91 @@ input[type='number'],
 
 .run-log li.show {
   color: var(--success);
+}
+
+.student-input {
+  width: 100%;
+  min-width: 72px;
+  background: #dbeeff;
+  border: 1px solid #8eb6d8;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.contract-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.contract-doc .brief-title {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.dual-pane {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.scheme-card {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-alt);
+}
+
+.scheme-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.scheme-card p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.status-board {
+  padding: 16px 18px;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius);
+  background: var(--success-weak);
+}
+
+.status-board h3 {
+  margin: 0 0 10px;
+}
+
+.status-board ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.status-board li + li {
+  margin-top: 4px;
+}
+
+.download-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin: 8px 0 16px;
+}
+
+.file-link {
+  color: var(--accent);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.file-link:hover {
+  color: var(--accent-strong);
+}
+
+@media (max-width: 900px) {
+  .dual-pane {
+    grid-template-columns: 1fr;
+  }
 }

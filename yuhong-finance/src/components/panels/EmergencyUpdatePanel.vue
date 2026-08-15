@@ -103,14 +103,21 @@ const params = reactive({
   gridJia3: '',
   gridJia6: '',
 })
+const decisionForm = reactive({
+  levelFrom: 'III级',
+  levelTo: '',
+  planFrom: 'B',
+  planTo: '',
+})
 
-store.restore({ batchName, sources, checks, params })
+store.restore({ batchName, sources, checks, params, decisionForm })
 
 const chosenSources = computed(() => secondWaveBatch.sources.filter((name) => sources[name]))
 const chosenChecks = computed(() => checkItems.filter((name) => checks[name]))
+const showPlanC = computed(() => decisionForm.planTo === 'C')
 
 function snapshot() {
-  return { batchName, sources, checks, params }
+  return { batchName, sources, checks, params, decisionForm }
 }
 
 function run(id, check) {
@@ -147,6 +154,12 @@ function checkParams() {
   return ''
 }
 
+function checkDecision() {
+  if (decisionForm.levelTo !== secondDecision.levelTo) return '请将响应等级由 III级 改为 II级'
+  if (decisionForm.planTo !== secondDecision.planTo) return '请将预算方案由 B方案 改为 C方案'
+  return ''
+}
+
 function resetAll() {
   flow.reset()
   store.clear()
@@ -154,6 +167,7 @@ function resetAll() {
   secondWaveBatch.sources.forEach((name) => { sources[name] = false })
   checkItems.forEach((name) => { checks[name] = false })
   Object.assign(params, { shelterDays: '', relocated: '', roadBreaks: '', gridJia3: '', gridJia6: '' })
+  Object.assign(decisionForm, { levelFrom: 'III级', levelTo: '', planFrom: 'B', planTo: '' })
   error.value = ''
 }
 </script>
@@ -361,12 +375,29 @@ function resetAll() {
 
         <template v-else-if="leaf === 'decision'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button" @click="run('decision')">确认二次决策</button>
+            <button type="button" class="primary-button" @click="run('decision', checkDecision)">确认二次决策</button>
           </div>
-          <p class="form-desc">财务主管统筹岗：响应升级后将预算方案由 B 切换为 C。</p>
-          <dl class="block-fields">
-            <div class="field-row"><dt>响应等级</dt><dd>{{ secondDecision.levelFrom }} → {{ secondDecision.levelTo }}</dd></div>
-            <div class="field-row"><dt>预算方案</dt><dd>{{ secondDecision.planFrom }} → {{ secondDecision.planTo }}</dd></div>
+          <p class="form-desc">财务主管统筹岗：将响应等级由 III级 改为 II级，将预算方案由 B方案 改为 C方案。选定 C 方案后自动带出资金覆盖测算。</p>
+          <div class="form-row">
+            <label class="form-item">
+              <span class="form-label required">响应等级</span>
+              <select v-model="decisionForm.levelTo" class="form-control">
+                <option value="">请选择</option>
+                <option>III级</option>
+                <option>II级</option>
+              </select>
+            </label>
+            <label class="form-item">
+              <span class="form-label required">预算方案</span>
+              <select v-model="decisionForm.planTo" class="form-control">
+                <option value="">请选择</option>
+                <option value="B">B方案</option>
+                <option value="C">C方案</option>
+              </select>
+            </label>
+          </div>
+          <p class="block-path">{{ decisionForm.levelFrom }} → {{ decisionForm.levelTo || '待选择' }}，{{ decisionForm.planFrom }}方案 → {{ decisionForm.planTo || '待选择' }}方案</p>
+          <dl v-if="showPlanC" class="block-fields">
             <div class="field-row"><dt>C方案预算上限</dt><dd>{{ money(secondDecision.cap, 1) }} 元</dd></div>
             <div class="field-row"><dt>预备费</dt><dd>{{ money(secondDecision.reserve, 0) }} 元｜{{ secondDecision.reserveState }}</dd></div>
             <div class="field-row"><dt>政府财政资金</dt><dd>{{ money(secondDecision.fiscal, 0) }} 元｜{{ secondDecision.fiscalState }}</dd></div>
