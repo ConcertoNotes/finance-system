@@ -1,0 +1,162 @@
+- generic [ref=f1e3]:
+  - banner [ref=f1e4]:
+    - generic [ref=f1e5] [cursor=pointer]:
+      - generic [ref=f1e6]: 御
+      - generic [ref=f1e7]:
+        - heading "御洪智策" [level=1] [ref=f1e8]
+        - paragraph [ref=f1e9]: 洪涝应急财经决策平台
+    - generic [ref=f1e10]:
+      - generic [ref=f1e11]: 汛情F-2026-0803
+      - generic [ref=f1e12]: 项目HJ-2026-001
+      - generic [ref=f1e13]: 18:07:47
+      - button "清除本任务记录" [ref=f1e313] [cursor=pointer]
+  - generic [ref=f1e16]:
+    - complementary [ref=f1e17]:
+      - button "« 收起导航" [ref=f1e18] [cursor=pointer]:
+        - generic [ref=f1e19]: «
+        - generic [ref=f1e20]: 收起导航
+      - navigation [ref=f1e21]:
+        - link "00 首页总览" [ref=f1e22] [cursor=pointer]:
+          - /url: "#/"
+          - generic [ref=f1e23]: "00"
+          - generic [ref=f1e24]: 首页总览
+        - paragraph [ref=f1e25]: 岗位工作台
+        - generic [ref=f1e26]:
+          - button "F01 财务主管统筹岗 7" [ref=f1e27] [cursor=pointer]:
+            - generic [ref=f1e28]: F01
+            - generic [ref=f1e29]: 财务主管统筹岗
+            - generic [ref=f1e30]: "7"
+          - generic [ref=f1e181]:
+            - button "1 启用洪涝应急救援专项账套" [ref=f1e182] [cursor=pointer]:
+              - generic [ref=f1e183]: "1"
+              - generic [ref=f1e184]: 启用洪涝应急救援专项账套
+            - button "2 数据建模分析合规性检测" [ref=f1e185] [cursor=pointer]:
+              - generic [ref=f1e186]: "2"
+              - generic [ref=f1e187]: 数据建模分析合规性检测
+            - button "3 B方案预算审批" [ref=f1e188] [cursor=pointer]:
+              - generic [ref=f1e189]: "3"
+              - generic [ref=f1e190]: B方案预算审批
+            - button "4 第一次突发事件——受灾人数突然增加" [ref=f1e191] [cursor=pointer]:
+              - generic [ref=f1e192]: "4"
+              - generic [ref=f1e193]: 第一次突发事件——受灾人数突然增加
+            - button "5 生成9网格采购需求" [ref=f1e194] [cursor=pointer]:
+              - generic [ref=f1e195]: "5"
+              - generic [ref=f1e196]: 生成9网格采购需求
+            - button "6 合同物资供应商综合评分与初始遴选" [ref=f1e197] [cursor=pointer]:
+              - generic [ref=f1e198]: "6"
+              - generic [ref=f1e199]: 合同物资供应商综合评分与初始遴选
+            - button "7 初始合同、直采控制与预算占用" [ref=f1e200] [cursor=pointer]:
+              - generic [ref=f1e201]: "7"
+              - generic [ref=f1e202]: 初始合同、直采控制与预算占用
+        - button "P02 采购成本保障岗 8" [ref=f1e32] [cursor=pointer]:
+          - generic [ref=f1e33]: P02
+          - generic [ref=f1e34]: 采购成本保障岗
+          - generic [ref=f1e35]: "8"
+        - button "B03 应急预算绩效岗 5" [ref=f1e37] [cursor=pointer]:
+          - generic [ref=f1e38]: B03
+          - generic [ref=f1e39]: 应急预算绩效岗
+          - generic [ref=f1e40]: "5"
+        - button "R04 资金核算风控岗 3" [ref=f1e42] [cursor=pointer]:
+          - generic [ref=f1e43]: R04
+          - generic [ref=f1e44]: 资金核算风控岗
+          - generic [ref=f1e45]: "3"
+        - paragraph [ref=f1e46]: 辅助资源
+        - link "AI 数字人御洪星" [ref=f1e47] [cursor=pointer]:
+          - /url: "#/assistant"
+          - generic [ref=f1e48]: AI
+          - generic [ref=f1e49]: 数字人御洪星
+        - link "DS 补充数据表" [ref=f1e50] [cursor=pointer]:
+          - /url: "#/workbooks"
+          - generic [ref=f1e51]: DS
+          - generic [ref=f1e52]: 补充数据表
+    - main [ref=f1e53]:
+      - generic [ref=f1e314]:
+        - generic [ref=f1e315]:
+          - generic [ref=f1e316]:
+            - generic [ref=f1e317]: 任务 2
+            - heading "数据建模分析合规性检测" [level=1] [ref=f1e318]
+            - generic [ref=f1e319]: 主责 财务主管统筹岗
+          - generic [ref=f1e320]:
+            - button "返回岗位" [ref=f1e321] [cursor=pointer]
+            - generic [ref=f1e322]:
+              - button "上一任务" [ref=f1e323] [cursor=pointer]
+              - button "下一任务" [ref=f1e324] [cursor=pointer]
+        - generic [ref=f1e327]:
+          - generic [ref=f1e328]:
+            - generic [ref=f1e329]: 御
+            - generic [ref=f1e330]: 数据质量与合规检测中心
+            - generic [ref=f1e331]: 已办理 0 / 8
+            - generic [ref=f1e332]: 财务主管统筹岗
+            - button "退出" [ref=f1e333] [cursor=pointer]
+          - generic [ref=f1e334]:
+            - navigation [ref=f1e335]:
+              - list [ref=f1e336]:
+                - listitem [ref=f1e337]:
+                  - button "▸ 数据共享中心" [ref=f1e338] [cursor=pointer]:
+                    - generic [ref=f1e339]: ▸
+                    - generic [ref=f1e341]: 数据共享中心
+                - listitem [ref=f1e342]:
+                  - button "▾ 检测规则" [active] [ref=f1e401] [cursor=pointer]:
+                    - generic [ref=f1e344]: ▾
+                    - generic [ref=f1e346]: 检测规则
+                  - list [ref=f1e402]:
+                    - listitem [ref=f1e403]:
+                      - button "▸ 数据质量规则" [ref=f1e404] [cursor=pointer]:
+                        - generic [ref=f1e405]: ▸
+                        - generic [ref=f1e407]: 数据质量规则
+                    - listitem [ref=f1e408]:
+                      - button "▸ 合规检测" [ref=f1e409] [cursor=pointer]:
+                        - generic [ref=f1e410]: ▸
+                        - generic [ref=f1e412]: 合规检测
+                - listitem [ref=f1e347]:
+                  - button "▸ 规则配置" [ref=f1e348] [cursor=pointer]:
+                    - generic [ref=f1e349]: ▸
+                    - generic [ref=f1e351]: 规则配置
+                - listitem [ref=f1e352]:
+                  - button "▸ 合规知识库" [ref=f1e353] [cursor=pointer]:
+                    - generic [ref=f1e354]: ▸
+                    - generic [ref=f1e356]: 合规知识库
+            - generic [ref=f1e357]:
+              - generic [ref=f1e358]:
+                - list "办理步骤" [ref=f1e359]:
+                  - listitem [ref=f1e360]:
+                    - button "1 载入数据" [ref=f1e361] [cursor=pointer]:
+                      - generic [ref=f1e362]: "1"
+                      - generic [ref=f1e363]: 载入数据
+                  - listitem [ref=f1e364]:
+                    - button "2 准入规则" [ref=f1e365] [cursor=pointer]:
+                      - generic [ref=f1e366]: "2"
+                      - generic [ref=f1e367]: 准入规则
+                  - listitem [ref=f1e368]:
+                    - button "3 异常处置" [ref=f1e369] [cursor=pointer]:
+                      - generic [ref=f1e370]: "3"
+                      - generic [ref=f1e371]: 异常处置
+                  - listitem [ref=f1e372]:
+                    - button "4 否决规则" [ref=f1e373] [cursor=pointer]:
+                      - generic [ref=f1e374]: "4"
+                      - generic [ref=f1e375]: 否决规则
+                  - listitem [ref=f1e376]:
+                    - button "5 规则依据" [ref=f1e377] [cursor=pointer]:
+                      - generic [ref=f1e378]: "5"
+                      - generic [ref=f1e379]: 规则依据
+                  - listitem [ref=f1e380]:
+                    - button "6 执行判定" [ref=f1e381] [cursor=pointer]:
+                      - generic [ref=f1e382]: "6"
+                      - generic [ref=f1e383]: 执行判定
+                  - listitem [ref=f1e384]:
+                    - button "7 校验单" [ref=f1e385] [cursor=pointer]:
+                      - generic [ref=f1e386]: "7"
+                      - generic [ref=f1e387]: 校验单
+                  - listitem [ref=f1e388]:
+                    - button "8 共享发布" [ref=f1e389] [cursor=pointer]:
+                      - generic [ref=f1e390]: "8"
+                      - generic [ref=f1e391]: 共享发布
+                - paragraph [ref=f1e392]: 已办理 0 / 8 · 每步点「保存」后进度前进
+              - generic [ref=f1e393]:
+                - paragraph [ref=f1e394]: 请从左侧功能菜单逐级进入需要办理的业务页面
+                - paragraph [ref=f1e395]: 数据质量与合规检测中心 · 共 8 个功能页
+          - generic [ref=f1e396]:
+            - generic [ref=f1e397]: 应急财经专网
+            - generic [ref=f1e398]: 账套 HJ-2026-001
+            - generic [ref=f1e399]: 操作员 财务主管统筹岗
+            - button "重置办理" [ref=f1e400] [cursor=pointer]

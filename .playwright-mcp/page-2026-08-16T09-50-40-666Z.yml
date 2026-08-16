@@ -1,0 +1,175 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5] [cursor=pointer]:
+      - generic [ref=e6]: 御
+      - generic [ref=e7]:
+        - heading "御洪智策" [level=1] [ref=e8]
+        - paragraph [ref=e9]: 洪涝应急财经决策平台
+    - generic [ref=e10]:
+      - generic [ref=e11]: 汛情F-2026-0803
+      - generic [ref=e12]: 项目HJ-2026-001
+      - generic [ref=e13]: 17:50:39
+      - button "清除本岗位记录" [ref=e180] [cursor=pointer]
+  - generic [ref=e16]:
+    - complementary [ref=e17]:
+      - button "« 收起导航" [ref=e18] [cursor=pointer]:
+        - generic [ref=e19]: «
+        - generic [ref=e20]: 收起导航
+      - navigation [ref=e21]:
+        - link "00 首页总览" [ref=e22] [cursor=pointer]:
+          - /url: "#/"
+          - generic [ref=e23]: "00"
+          - generic [ref=e24]: 首页总览
+        - paragraph [ref=e25]: 岗位工作台
+        - generic [ref=e26]:
+          - button "F01 财务主管统筹岗 7" [ref=e27] [cursor=pointer]:
+            - generic [ref=e28]: F01
+            - generic [ref=e29]: 财务主管统筹岗
+            - generic [ref=e30]: "7"
+          - generic [ref=e181]:
+            - button "1 启用洪涝应急救援专项账套" [ref=e182] [cursor=pointer]:
+              - generic [ref=e183]: "1"
+              - generic [ref=e184]: 启用洪涝应急救援专项账套
+            - button "2 数据建模分析合规性检测" [ref=e185] [cursor=pointer]:
+              - generic [ref=e186]: "2"
+              - generic [ref=e187]: 数据建模分析合规性检测
+            - button "3 B方案预算审批" [ref=e188] [cursor=pointer]:
+              - generic [ref=e189]: "3"
+              - generic [ref=e190]: B方案预算审批
+            - button "4 第一次突发事件——受灾人数突然增加" [ref=e191] [cursor=pointer]:
+              - generic [ref=e192]: "4"
+              - generic [ref=e193]: 第一次突发事件——受灾人数突然增加
+            - button "5 生成9网格采购需求" [ref=e194] [cursor=pointer]:
+              - generic [ref=e195]: "5"
+              - generic [ref=e196]: 生成9网格采购需求
+            - button "6 合同物资供应商综合评分与初始遴选" [ref=e197] [cursor=pointer]:
+              - generic [ref=e198]: "6"
+              - generic [ref=e199]: 合同物资供应商综合评分与初始遴选
+            - button "7 初始合同、直采控制与预算占用" [ref=e200] [cursor=pointer]:
+              - generic [ref=e201]: "7"
+              - generic [ref=e202]: 初始合同、直采控制与预算占用
+        - button "P02 采购成本保障岗 8" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]: P02
+          - generic [ref=e34]: 采购成本保障岗
+          - generic [ref=e35]: "8"
+        - button "B03 应急预算绩效岗 5" [ref=e37] [cursor=pointer]:
+          - generic [ref=e38]: B03
+          - generic [ref=e39]: 应急预算绩效岗
+          - generic [ref=e40]: "5"
+        - button "R04 资金核算风控岗 3" [ref=e42] [cursor=pointer]:
+          - generic [ref=e43]: R04
+          - generic [ref=e44]: 资金核算风控岗
+          - generic [ref=e45]: "3"
+        - paragraph [ref=e46]: 辅助资源
+        - link "AI 数字人御洪星" [ref=e47] [cursor=pointer]:
+          - /url: "#/assistant"
+          - generic [ref=e48]: AI
+          - generic [ref=e49]: 数字人御洪星
+        - link "DS 补充数据表" [ref=e50] [cursor=pointer]:
+          - /url: "#/workbooks"
+          - generic [ref=e51]: DS
+          - generic [ref=e52]: 补充数据表
+    - main [ref=e53]:
+      - generic [ref=e203]:
+        - generic [ref=e204]:
+          - generic [ref=e205]:
+            - heading "财务主管统筹岗" [level=1] [ref=e206]
+            - paragraph [ref=e207]: 专项账套启用、数据合规准入、重大方案审批与跨岗位统筹
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - generic [ref=e210]: F01
+              - generic [ref=e211]: 统筹岗
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - strong [ref=e214]: "7"
+                - generic [ref=e215]: 承担任务
+              - generic [ref=e216]:
+                - strong [ref=e217]: "3"
+                - generic [ref=e218]: 其中主责
+        - generic [ref=e219]:
+          - heading "岗位权限与边界" [level=2] [ref=e221]
+          - generic [ref=e223]:
+            - generic [ref=e224]: 专项账套启用
+            - generic [ref=e225]: 预算及重大调整审批
+            - generic [ref=e226]: 付款审批
+            - generic [ref=e227]: 异常事项最终复核
+            - generic [ref=e228]: 全项目数据查看
+        - generic [ref=e229]:
+          - generic [ref=e230]:
+            - heading "财务主管统筹模块" [level=2] [ref=e231]
+            - generic [ref=e232]: 共 7 项任务，点击卡片进入
+          - generic [ref=e234]:
+            - button "任务 1 主责 启用洪涝应急救援专项账套 建立洪涝应急救援专项账套，配置专项科目、资金来源、9网格辅助核算、岗位权限与5项内控规则，打通“需求—物资—资金—凭证”四链联动。 本岗 8 步 全流程 8 步 输出 3 项" [ref=e235] [cursor=pointer]:
+              - generic [ref=e236]:
+                - generic [ref=e237]: 任务 1
+                - generic [ref=e238]: 主责
+              - heading "启用洪涝应急救援专项账套" [level=3] [ref=e239]
+              - paragraph [ref=e240]: 建立洪涝应急救援专项账套，配置专项科目、资金来源、9网格辅助核算、岗位权限与5项内控规则，打通“需求—物资—资金—凭证”四链联动。
+              - generic [ref=e241]:
+                - generic [ref=e242]: 本岗 8 步
+                - generic [ref=e243]: 全流程 8 步
+                - generic [ref=e244]: 输出 3 项
+            - button "任务 2 主责 数据建模分析合规性检测 对清洗后的 9 网格数据执行两层校验：第一层 95% 内部质量门槛，第二层 6 项合规一票否决，判定是否准予进入预算模型。 本岗 9 步 全流程 9 步 输出 2 项" [ref=e245] [cursor=pointer]:
+              - generic [ref=e246]:
+                - generic [ref=e247]: 任务 2
+                - generic [ref=e248]: 主责
+              - heading "数据建模分析合规性检测" [level=3] [ref=e249]
+              - paragraph [ref=e250]: 对清洗后的 9 网格数据执行两层校验：第一层 95% 内部质量门槛，第二层 6 项合规一票否决，判定是否准予进入预算模型。
+              - generic [ref=e251]:
+                - generic [ref=e252]: 本岗 9 步
+                - generic [ref=e253]: 全流程 9 步
+                - generic [ref=e254]: 输出 2 项
+            - button "任务 3 主责 B方案预算审批 登记 III 级响应并载入 B 方案，按已确认到账 366 万元测算资金覆盖率 125.82%，建立 2,909,004 元预算控制额度并完成审批同步。 本岗 8 步 全流程 7 步 输出 3 项" [ref=e255] [cursor=pointer]:
+              - generic [ref=e256]:
+                - generic [ref=e257]: 任务 3
+                - generic [ref=e258]: 主责
+              - heading "B方案预算审批" [level=3] [ref=e259]
+              - paragraph [ref=e260]: 登记 III 级响应并载入 B 方案，按已确认到账 366 万元测算资金覆盖率 125.82%，建立 2,909,004 元预算控制额度并完成审批同步。
+              - generic [ref=e261]:
+                - generic [ref=e262]: 本岗 8 步
+                - generic [ref=e263]: 全流程 7 步
+                - generic [ref=e264]: 输出 3 项
+            - button "任务 4 协同 第一次突发事件——受灾人数突然增加 甲3、甲6二次报送后响应由 III 级升为 II 级，预算由 B 方案切换为 C 方案；财政资金全部到位后覆盖率 93.96%，短期缺口 258,517.50 元，并启动帐篷追加采购。 本岗 1 步 全流程 10 步 输出 3 项 协同 预算岗、采购岗、风控岗" [ref=e265] [cursor=pointer]:
+              - generic [ref=e266]:
+                - generic [ref=e267]: 任务 4
+                - generic [ref=e268]: 协同
+              - heading "第一次突发事件——受灾人数突然增加" [level=3] [ref=e269]
+              - paragraph [ref=e270]: 甲3、甲6二次报送后响应由 III 级升为 II 级，预算由 B 方案切换为 C 方案；财政资金全部到位后覆盖率 93.96%，短期缺口 258,517.50 元，并启动帐篷追加采购。
+              - generic [ref=e271]:
+                - generic [ref=e272]: 本岗 1 步
+                - generic [ref=e273]: 全流程 10 步
+                - generic [ref=e274]: 输出 3 项
+              - generic [ref=e275]: 协同 预算岗、采购岗、风控岗
+            - button "任务 5 协同 生成9网格采购需求 按安置方式与帐篷可用量测算 6 类物资净采购量，划分合同采购与生活保障直采，并由财务主管复核后生成采购任务。 本岗 1 步 全流程 5 步 输出 2 项 协同 采购岗" [ref=e277] [cursor=pointer]:
+              - generic [ref=e278]:
+                - generic [ref=e279]: 任务 5
+                - generic [ref=e280]: 协同
+              - heading "生成9网格采购需求" [level=3] [ref=e281]
+              - paragraph [ref=e282]: 按安置方式与帐篷可用量测算 6 类物资净采购量，划分合同采购与生活保障直采，并由财务主管复核后生成采购任务。
+              - generic [ref=e283]:
+                - generic [ref=e284]: 本岗 1 步
+                - generic [ref=e285]: 全流程 5 步
+                - generic [ref=e286]: 输出 2 项
+              - generic [ref=e287]: 协同 采购岗
+            - button "任务 6 协同 合同物资供应商综合评分与初始遴选 按报价 40%、交付 20%、质量 15%、资质 10%、履约 10%、距离 5% 加权评分，形成 S2 > S1 > S3 初始排序并完成三岗复核。 本岗 1 步 全流程 4 步 输出 2 项 协同 采购岗、预算岗、风控岗" [ref=e289] [cursor=pointer]:
+              - generic [ref=e290]:
+                - generic [ref=e291]: 任务 6
+                - generic [ref=e292]: 协同
+              - heading "合同物资供应商综合评分与初始遴选" [level=3] [ref=e293]
+              - paragraph [ref=e294]: 按报价 40%、交付 20%、质量 15%、资质 10%、履约 10%、距离 5% 加权评分，形成 S2 > S1 > S3 初始排序并完成三岗复核。
+              - generic [ref=e295]:
+                - generic [ref=e296]: 本岗 1 步
+                - generic [ref=e297]: 全流程 4 步
+                - generic [ref=e298]: 输出 2 项
+              - generic [ref=e299]: 协同 采购岗、预算岗、风控岗
+            - button "任务 7 协同 初始合同、直采控制与预算占用 编制 HT-2025-001 合同 932,460 元与生活保障直采协议 149,397.50 元，占用 C 方案预算 25.29%，并完成资金控制与履约监测分流。 本岗 1 步 全流程 4 步 输出 4 项 协同 采购岗、预算岗、风控岗" [ref=e301] [cursor=pointer]:
+              - generic [ref=e302]:
+                - generic [ref=e303]: 任务 7
+                - generic [ref=e304]: 协同
+              - heading "初始合同、直采控制与预算占用" [level=3] [ref=e305]
+              - paragraph [ref=e306]: 编制 HT-2025-001 合同 932,460 元与生活保障直采协议 149,397.50 元，占用 C 方案预算 25.29%，并完成资金控制与履约监测分流。
+              - generic [ref=e307]:
+                - generic [ref=e308]: 本岗 1 步
+                - generic [ref=e309]: 全流程 4 步
+                - generic [ref=e310]: 输出 4 项
+              - generic [ref=e311]: 协同 采购岗、预算岗、风控岗

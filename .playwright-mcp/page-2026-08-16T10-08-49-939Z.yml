@@ -1,0 +1,278 @@
+- generic [ref=f2e3]:
+  - banner [ref=f2e4]:
+    - generic [ref=f2e5] [cursor=pointer]:
+      - generic [ref=f2e6]: 御
+      - generic [ref=f2e7]:
+        - heading "御洪智策" [level=1] [ref=f2e8]
+        - paragraph [ref=f2e9]: 洪涝应急财经决策平台
+    - generic [ref=f2e10]:
+      - generic [ref=f2e11]: 汛情F-2026-0803
+      - generic [ref=f2e12]: 项目HJ-2026-001
+      - generic [ref=f2e13]: 18:08:49
+      - button "清除本任务记录" [ref=f2e15] [cursor=pointer]
+  - generic [ref=f2e16]:
+    - complementary [ref=f2e17]:
+      - button "« 收起导航" [ref=f2e18] [cursor=pointer]:
+        - generic [ref=f2e19]: «
+        - generic [ref=f2e20]: 收起导航
+      - navigation [ref=f2e21]:
+        - link "00 首页总览" [ref=f2e22] [cursor=pointer]:
+          - /url: "#/"
+          - generic [ref=f2e23]: "00"
+          - generic [ref=f2e24]: 首页总览
+        - paragraph [ref=f2e25]: 岗位工作台
+        - generic [ref=f2e26]:
+          - button "F01 财务主管统筹岗 7" [ref=f2e27] [cursor=pointer]:
+            - generic [ref=f2e28]: F01
+            - generic [ref=f2e29]: 财务主管统筹岗
+            - generic [ref=f2e30]: "7"
+          - generic [ref=f2e31]:
+            - button "1 启用洪涝应急救援专项账套" [ref=f2e32] [cursor=pointer]:
+              - generic [ref=f2e33]: "1"
+              - generic [ref=f2e34]: 启用洪涝应急救援专项账套
+            - button "2 数据建模分析合规性检测" [ref=f2e35] [cursor=pointer]:
+              - generic [ref=f2e36]: "2"
+              - generic [ref=f2e37]: 数据建模分析合规性检测
+            - button "3 B方案预算审批" [ref=f2e38] [cursor=pointer]:
+              - generic [ref=f2e39]: "3"
+              - generic [ref=f2e40]: B方案预算审批
+            - button "4 第一次突发事件——受灾人数突然增加" [ref=f2e41] [cursor=pointer]:
+              - generic [ref=f2e42]: "4"
+              - generic [ref=f2e43]: 第一次突发事件——受灾人数突然增加
+            - button "5 生成9网格采购需求" [ref=f2e44] [cursor=pointer]:
+              - generic [ref=f2e45]: "5"
+              - generic [ref=f2e46]: 生成9网格采购需求
+            - button "6 合同物资供应商综合评分与初始遴选" [ref=f2e47] [cursor=pointer]:
+              - generic [ref=f2e48]: "6"
+              - generic [ref=f2e49]: 合同物资供应商综合评分与初始遴选
+            - button "7 初始合同、直采控制与预算占用" [ref=f2e50] [cursor=pointer]:
+              - generic [ref=f2e51]: "7"
+              - generic [ref=f2e52]: 初始合同、直采控制与预算占用
+        - button "P02 采购成本保障岗 8" [ref=f2e54] [cursor=pointer]:
+          - generic [ref=f2e55]: P02
+          - generic [ref=f2e56]: 采购成本保障岗
+          - generic [ref=f2e57]: "8"
+        - button "B03 应急预算绩效岗 5" [ref=f2e59] [cursor=pointer]:
+          - generic [ref=f2e60]: B03
+          - generic [ref=f2e61]: 应急预算绩效岗
+          - generic [ref=f2e62]: "5"
+        - button "R04 资金核算风控岗 3" [ref=f2e64] [cursor=pointer]:
+          - generic [ref=f2e65]: R04
+          - generic [ref=f2e66]: 资金核算风控岗
+          - generic [ref=f2e67]: "3"
+        - paragraph [ref=f2e68]: 辅助资源
+        - link "AI 数字人御洪星" [ref=f2e69] [cursor=pointer]:
+          - /url: "#/assistant"
+          - generic [ref=f2e70]: AI
+          - generic [ref=f2e71]: 数字人御洪星
+        - link "DS 补充数据表" [ref=f2e72] [cursor=pointer]:
+          - /url: "#/workbooks"
+          - generic [ref=f2e73]: DS
+          - generic [ref=f2e74]: 补充数据表
+    - main [ref=f2e75]:
+      - generic [ref=f2e76]:
+        - generic [ref=f2e77]:
+          - generic [ref=f2e78]:
+            - generic [ref=f2e79]: 任务 2
+            - heading "数据建模分析合规性检测" [level=1] [ref=f2e80]
+            - generic [ref=f2e81]: 主责 财务主管统筹岗
+          - generic [ref=f2e82]:
+            - button "返回岗位" [ref=f2e83] [cursor=pointer]
+            - generic [ref=f2e84]:
+              - button "上一任务" [ref=f2e85] [cursor=pointer]
+              - button "下一任务" [ref=f2e86] [cursor=pointer]
+        - generic [ref=f2e89]:
+          - generic [ref=f2e90]:
+            - generic [ref=f2e91]: 御
+            - generic [ref=f2e92]: 数据质量与合规检测中心
+            - generic [ref=f2e93]: 已办理 0 / 8
+            - generic [ref=f2e94]: 财务主管统筹岗
+            - button "退出" [ref=f2e95] [cursor=pointer]
+          - generic [ref=f2e96]:
+            - navigation [ref=f2e97]:
+              - list [ref=f2e98]:
+                - listitem [ref=f2e99]:
+                  - button "▸ 数据共享中心" [ref=f2e100] [cursor=pointer]:
+                    - generic [ref=f2e101]: ▸
+                    - generic [ref=f2e103]: 数据共享中心
+                - listitem [ref=f2e104]:
+                  - button "▾ 检测规则" [ref=f2e163] [cursor=pointer]:
+                    - generic [ref=f2e106]: ▾
+                    - generic [ref=f2e108]: 检测规则
+                  - list [ref=f2e164]:
+                    - listitem [ref=f2e165]:
+                      - button "▾ 数据质量规则" [ref=f2e175] [cursor=pointer]:
+                        - generic [ref=f2e167]: ▾
+                        - generic [ref=f2e169]: 数据质量规则
+                      - list [ref=f2e176]:
+                        - listitem [ref=f2e177]:
+                          - button "新建准入规则" [active] [ref=f2e178] [cursor=pointer]
+                    - listitem [ref=f2e170]:
+                      - button "▸ 合规检测" [ref=f2e171] [cursor=pointer]:
+                        - generic [ref=f2e172]: ▸
+                        - generic [ref=f2e174]: 合规检测
+                - listitem [ref=f2e109]:
+                  - button "▸ 规则配置" [ref=f2e110] [cursor=pointer]:
+                    - generic [ref=f2e111]: ▸
+                    - generic [ref=f2e113]: 规则配置
+                - listitem [ref=f2e114]:
+                  - button "▸ 合规知识库" [ref=f2e115] [cursor=pointer]:
+                    - generic [ref=f2e116]: ▸
+                    - generic [ref=f2e118]: 合规知识库
+            - generic [ref=f2e119]:
+              - generic [ref=f2e181]:
+                - generic [ref=f2e182]: 检测规则
+                - generic [ref=f2e183]: /
+                - generic [ref=f2e184]: 数据质量规则
+                - generic [ref=f2e185]: /
+                - generic [ref=f2e186]: 新建准入规则
+              - generic [ref=f2e120]:
+                - list "办理步骤" [ref=f2e121]:
+                  - listitem [ref=f2e122]:
+                    - button "1 载入数据" [ref=f2e123] [cursor=pointer]:
+                      - generic [ref=f2e124]: "1"
+                      - generic [ref=f2e125]: 载入数据
+                  - listitem [ref=f2e126]:
+                    - button "2 准入规则" [ref=f2e127] [cursor=pointer]:
+                      - generic [ref=f2e128]: "2"
+                      - generic [ref=f2e129]: 准入规则
+                  - listitem [ref=f2e130]:
+                    - button "3 异常处置" [ref=f2e131] [cursor=pointer]:
+                      - generic [ref=f2e132]: "3"
+                      - generic [ref=f2e133]: 异常处置
+                  - listitem [ref=f2e134]:
+                    - button "4 否决规则" [ref=f2e135] [cursor=pointer]:
+                      - generic [ref=f2e136]: "4"
+                      - generic [ref=f2e137]: 否决规则
+                  - listitem [ref=f2e138]:
+                    - button "5 规则依据" [ref=f2e139] [cursor=pointer]:
+                      - generic [ref=f2e140]: "5"
+                      - generic [ref=f2e141]: 规则依据
+                  - listitem [ref=f2e142]:
+                    - button "6 执行判定" [ref=f2e143] [cursor=pointer]:
+                      - generic [ref=f2e144]: "6"
+                      - generic [ref=f2e145]: 执行判定
+                  - listitem [ref=f2e146]:
+                    - button "7 校验单" [ref=f2e147] [cursor=pointer]:
+                      - generic [ref=f2e148]: "7"
+                      - generic [ref=f2e149]: 校验单
+                  - listitem [ref=f2e150]:
+                    - button "8 共享发布" [ref=f2e151] [cursor=pointer]:
+                      - generic [ref=f2e152]: "8"
+                      - generic [ref=f2e153]: 共享发布
+                - paragraph [ref=f2e154]: 已办理 0 / 8 · 每步点「保存」后进度前进
+              - generic [ref=f2e187]:
+                - heading "新建准入规则" [level=3] [ref=f2e189]
+                - button "保存质量规则" [ref=f2e191] [cursor=pointer]
+                - generic [ref=f2e192]:
+                  - generic [ref=f2e193]:
+                    - generic [ref=f2e194]: "*规则名称"
+                    - combobox "*规则名称" [ref=f2e195]:
+                      - option "请选择" [selected]
+                      - option "灾情数据预算模型准入规则"
+                      - option "支付合规准入规则"
+                  - generic [ref=f2e196]:
+                    - generic [ref=f2e197]: "*数据质量准入值（%）"
+                    - combobox "*数据质量准入值（%）" [ref=f2e198]:
+                      - option "请选择" [selected]
+                      - option "90"
+                      - option "95"
+                      - option "100"
+                - generic [ref=f2e200]:
+                  - generic [ref=f2e201]: "*选项设置"
+                  - combobox "*选项设置" [ref=f2e202]:
+                    - option "请选择门槛说明" [selected]
+                    - option "项目内部数据可用性门槛，不作为法律合规标准。"
+                    - option "作为法律合规强制标准。"
+                - heading "指标一 · 数据完整率" [level=3] [ref=f2e205]
+                - textbox "数据完整率计算公式" [ref=f2e206]: 完整率 = 已完整记录数 ÷ 应采集记录数 × 100%
+                - paragraph [ref=f2e207]: 检测内容
+                - generic [ref=f2e208]:
+                  - generic [ref=f2e209] [cursor=pointer]:
+                    - checkbox "网格编号" [ref=f2e210]
+                    - text: 网格编号
+                  - generic [ref=f2e211] [cursor=pointer]:
+                    - checkbox "受灾人数" [ref=f2e212]
+                    - text: 受灾人数
+                  - generic [ref=f2e213] [cursor=pointer]:
+                    - checkbox "被困人数" [ref=f2e214]
+                    - text: 被困人数
+                  - generic [ref=f2e215] [cursor=pointer]:
+                    - checkbox "转移安置人数" [ref=f2e216]
+                    - text: 转移安置人数
+                  - generic [ref=f2e217] [cursor=pointer]:
+                    - checkbox "特殊人群数" [ref=f2e218]
+                    - text: 特殊人群数
+                  - generic [ref=f2e219] [cursor=pointer]:
+                    - checkbox "道路情况" [ref=f2e220]
+                    - text: 道路情况
+                  - generic [ref=f2e221] [cursor=pointer]:
+                    - checkbox "降雨量" [ref=f2e222]
+                    - text: 降雨量
+                  - generic [ref=f2e223] [cursor=pointer]:
+                    - checkbox "水位" [ref=f2e224]
+                    - text: 水位
+                  - generic [ref=f2e225] [cursor=pointer]:
+                    - checkbox "距仓库距离" [ref=f2e226]
+                    - text: 距仓库距离
+                - paragraph [ref=f2e227]: 完整率 ≥ % → 通过；完整率 ＜ % → 退回补采。
+                - heading "指标二 · 数据及时率" [level=3] [ref=f2e229]
+                - textbox "数据及时率计算公式" [ref=f2e230]: 及时率 = 规定时间内完成采集记录数 ÷ 应采集记录数 × 100%
+                - generic [ref=f2e232]:
+                  - generic [ref=f2e233]: "*采集时间要求"
+                  - combobox "*采集时间要求" [ref=f2e234]:
+                    - option "请选择" [selected]
+                    - option "灾后 0 小时初始数据"
+                    - option "灾后 24 小时复核数据"
+                    - option "灾后 72 小时汇总数据"
+                - paragraph [ref=f2e236]: 采集时间要求：请先设置。及时率 ≥ —% → 通过；＜ —% → 退回复核。
+                - heading "指标三 · 数据准确性校验" [level=3] [ref=f2e238]
+                - generic [ref=f2e240]:
+                  - generic [ref=f2e241]: 检测方式
+                  - combobox "检测方式" [ref=f2e242]:
+                    - option "请选择" [selected]
+                    - option "多源交叉验证"
+                    - option "单源比对"
+                - paragraph [ref=f2e244]: 核验来源
+                - generic [ref=f2e245]:
+                  - generic [ref=f2e246] [cursor=pointer]:
+                    - checkbox "应急管理部门报送数据" [ref=f2e247]
+                    - text: 应急管理部门报送数据
+                  - generic [ref=f2e248] [cursor=pointer]:
+                    - checkbox "气象监测数据" [ref=f2e249]
+                    - text: 气象监测数据
+                  - generic [ref=f2e250] [cursor=pointer]:
+                    - checkbox "无人机巡航数据" [ref=f2e251]
+                    - text: 无人机巡航数据
+                - heading "异常数据处理" [level=3] [ref=f2e253]
+                - paragraph [ref=f2e254]: 统计异常 ≠ 错误数据
+                - paragraph [ref=f2e255]: 异常处理方式
+                - generic [ref=f2e256]:
+                  - button "异常值保留" [ref=f2e257] [cursor=pointer]
+                  - generic [ref=f2e258]: →
+                  - button "多源业务复核" [ref=f2e259] [cursor=pointer]
+                  - generic [ref=f2e260]: →
+                  - button "确认真实后进入模型" [ref=f2e261] [cursor=pointer]
+                - table [ref=f2e263]:
+                  - rowgroup [ref=f2e264]:
+                    - row [ref=f2e265]:
+                      - columnheader "网格" [ref=f2e266]
+                      - columnheader "统计高值" [ref=f2e267]
+                      - columnheader "前序复核结果" [ref=f2e268]
+                      - columnheader "处理状态" [ref=f2e269]
+                  - rowgroup [ref=f2e270]:
+                    - row [ref=f2e271]:
+                      - rowheader "甲3" [ref=f2e272]
+                      - cell "累计降雨量 156mm" [ref=f2e273]
+                      - cell "多源验证通过" [ref=f2e274]
+                      - cell "保留，重点关注" [ref=f2e275]
+                    - row [ref=f2e276]:
+                      - rowheader "甲6" [ref=f2e277]
+                      - cell "累计降雨量 148mm" [ref=f2e278]
+                      - cell "多源验证通过" [ref=f2e279]
+                      - cell "保留，重点关注" [ref=f2e280]
+          - generic [ref=f2e158]:
+            - generic [ref=f2e159]: 应急财经专网
+            - generic [ref=f2e160]: 账套 HJ-2026-001
+            - generic [ref=f2e161]: 操作员 财务主管统筹岗
+            - button "重置办理" [ref=f2e162] [cursor=pointer]

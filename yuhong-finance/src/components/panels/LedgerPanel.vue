@@ -66,6 +66,9 @@ const menu = [
 
 const activeId = ref('')
 const error = ref('')
+// 账套启用校验：模拟系统校验过程，转圈 3 秒后再执行既有校验逻辑。
+const isLedgerValidating = ref(false)
+let ledgerValidateTimer = null
 
 const PROJECT_OPTIONS = ['洪涝应急救援专项项目', '日常业务项目']
 const AUX_LEVELS = ['洪涝应急救援专项', '网格', '物资/费用项目']
@@ -184,7 +187,23 @@ function save(id, check) {
   flow.complete(id)
 }
 
+function startLedgerActivationValidation() {
+  if (isLedgerValidating.value) return
+  isLedgerValidating.value = true
+  ledgerValidateTimer = setTimeout(() => {
+    isLedgerValidating.value = false
+    ledgerValidateTimer = null
+    save('ledger-activate', () => (pendingPages.length ? `还有 ${pendingPages.length} 个功能页未办理，无法通过校验` : ''))
+  }, 3000)
+}
+
 function resetAll() {
+  if (ledgerValidateTimer) {
+    clearTimeout(ledgerValidateTimer)
+    ledgerValidateTimer = null
+  }
+  isLedgerValidating.value = false
+  flow.reset()
   flow.reset()
   store.clear()
   Object.assign(form, {
@@ -503,9 +522,15 @@ function resetAll() {
         <!-- 专项账套 → 账套启用校验 -->
         <template v-else-if="leaf === 'ledger-activate'">
           <div class="sys-toolbar">
-            <button type="button" class="primary-button"
-              @click="save('ledger-activate', () => (pendingPages.length ? `还有 ${pendingPages.length} 个功能页未办理，无法通过校验` : ''))">
-              校验测试并正式启用
+            <button
+              type="button"
+              class="primary-button"
+              :class="{ 'is-loading': isLedgerValidating }"
+              :disabled="isLedgerValidating"
+              @click="startLedgerActivationValidation"
+            >
+              <span v-if="isLedgerValidating" class="spinner" aria-hidden="true"></span>
+              {{ isLedgerValidating ? '校验中…' : '校验测试并正式启用' }}
             </button>
           </div>
           <div class="check-grid">

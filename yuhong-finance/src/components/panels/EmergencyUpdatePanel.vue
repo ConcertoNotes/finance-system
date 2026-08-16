@@ -33,6 +33,18 @@ const PAGES = [
   'material',
   'fund-status',
 ]
+const STEPS = [
+  { id: 'import-wave', label: '导入数据' },
+  { id: 'verify', label: '数据校验' },
+  { id: 'dashboard', label: '更新驾驶舱' },
+  { id: 'match-plan', label: '方案映射' },
+  { id: 'params', label: '参数调整' },
+  { id: 'drivers', label: '增量分析' },
+  { id: 'gap', label: '缺口测算' },
+  { id: 'decision', label: '二次决策' },
+  { id: 'material', label: '物资分析' },
+  { id: 'fund-status', label: '资金汇总' },
+]
 const flow = useTaskFlow('s1-t8', PAGES)
 const store = useFormPersist('s1-t8')
 
@@ -179,6 +191,7 @@ function resetAll() {
       operator="应急预算绩效岗"
       login-hint="登录后导入二次报送数据，完成方案切换、参数重测与跨岗回执。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"

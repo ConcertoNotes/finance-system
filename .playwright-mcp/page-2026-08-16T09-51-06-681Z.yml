@@ -1,0 +1,187 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5] [cursor=pointer]:
+      - generic [ref=e6]: 御
+      - generic [ref=e7]:
+        - heading "御洪智策" [level=1] [ref=e8]
+        - paragraph [ref=e9]: 洪涝应急财经决策平台
+    - generic [ref=e10]:
+      - generic [ref=e11]: 汛情F-2026-0803
+      - generic [ref=e12]: 项目HJ-2026-001
+      - generic [ref=e13]: 17:51:05
+      - button "清除本任务记录" [ref=e313] [cursor=pointer]
+  - generic [ref=e16]:
+    - complementary [ref=e17]:
+      - button "« 收起导航" [ref=e18] [cursor=pointer]:
+        - generic [ref=e19]: «
+        - generic [ref=e20]: 收起导航
+      - navigation [ref=e21]:
+        - link "00 首页总览" [ref=e22] [cursor=pointer]:
+          - /url: "#/"
+          - generic [ref=e23]: "00"
+          - generic [ref=e24]: 首页总览
+        - paragraph [ref=e25]: 岗位工作台
+        - generic [ref=e26]:
+          - button "F01 财务主管统筹岗 7" [ref=e27] [cursor=pointer]:
+            - generic [ref=e28]: F01
+            - generic [ref=e29]: 财务主管统筹岗
+            - generic [ref=e30]: "7"
+          - generic [ref=e181]:
+            - button "1 启用洪涝应急救援专项账套" [ref=e182] [cursor=pointer]:
+              - generic [ref=e183]: "1"
+              - generic [ref=e184]: 启用洪涝应急救援专项账套
+            - button "2 数据建模分析合规性检测" [ref=e185] [cursor=pointer]:
+              - generic [ref=e186]: "2"
+              - generic [ref=e187]: 数据建模分析合规性检测
+            - button "3 B方案预算审批" [ref=e188] [cursor=pointer]:
+              - generic [ref=e189]: "3"
+              - generic [ref=e190]: B方案预算审批
+            - button "4 第一次突发事件——受灾人数突然增加" [ref=e191] [cursor=pointer]:
+              - generic [ref=e192]: "4"
+              - generic [ref=e193]: 第一次突发事件——受灾人数突然增加
+            - button "5 生成9网格采购需求" [ref=e194] [cursor=pointer]:
+              - generic [ref=e195]: "5"
+              - generic [ref=e196]: 生成9网格采购需求
+            - button "6 合同物资供应商综合评分与初始遴选" [ref=e197] [cursor=pointer]:
+              - generic [ref=e198]: "6"
+              - generic [ref=e199]: 合同物资供应商综合评分与初始遴选
+            - button "7 初始合同、直采控制与预算占用" [ref=e200] [cursor=pointer]:
+              - generic [ref=e201]: "7"
+              - generic [ref=e202]: 初始合同、直采控制与预算占用
+        - button "P02 采购成本保障岗 8" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]: P02
+          - generic [ref=e34]: 采购成本保障岗
+          - generic [ref=e35]: "8"
+        - button "B03 应急预算绩效岗 5" [ref=e37] [cursor=pointer]:
+          - generic [ref=e38]: B03
+          - generic [ref=e39]: 应急预算绩效岗
+          - generic [ref=e40]: "5"
+        - button "R04 资金核算风控岗 3" [ref=e42] [cursor=pointer]:
+          - generic [ref=e43]: R04
+          - generic [ref=e44]: 资金核算风控岗
+          - generic [ref=e45]: "3"
+        - paragraph [ref=e46]: 辅助资源
+        - link "AI 数字人御洪星" [ref=e47] [cursor=pointer]:
+          - /url: "#/assistant"
+          - generic [ref=e48]: AI
+          - generic [ref=e49]: 数字人御洪星
+        - link "DS 补充数据表" [ref=e50] [cursor=pointer]:
+          - /url: "#/workbooks"
+          - generic [ref=e51]: DS
+          - generic [ref=e52]: 补充数据表
+    - main [ref=e53]:
+      - generic [ref=e314]:
+        - generic [ref=e315]:
+          - generic [ref=e316]:
+            - generic [ref=e317]: 任务 2
+            - heading "数据建模分析合规性检测" [level=1] [ref=e318]
+            - generic [ref=e319]: 主责 财务主管统筹岗
+          - generic [ref=e320]:
+            - button "返回岗位" [ref=e321] [cursor=pointer]
+            - generic [ref=e322]:
+              - button "上一任务" [ref=e323] [cursor=pointer]
+              - button "下一任务" [ref=e324] [cursor=pointer]
+        - generic [ref=e327]:
+          - generic [ref=e328]:
+            - generic [ref=e329]: 御
+            - generic [ref=e330]: 数据质量与合规检测中心
+            - generic [ref=e331]: 已办理 0 / 8
+            - generic [ref=e332]: 财务主管统筹岗
+            - button "退出" [ref=e333] [cursor=pointer]
+          - generic [ref=e334]:
+            - navigation [ref=e335]:
+              - list [ref=e336]:
+                - listitem [ref=e337]:
+                  - button "▾ 数据共享中心" [ref=e401] [cursor=pointer]:
+                    - generic [ref=e339]: ▾
+                    - generic [ref=e341]: 数据共享中心
+                  - list [ref=e402]:
+                    - listitem [ref=e403]:
+                      - button "▾ 洪涝应急救援项目" [ref=e408] [cursor=pointer]:
+                        - generic [ref=e405]: ▾
+                        - generic [ref=e407]: 洪涝应急救援项目
+                      - list [ref=e409]:
+                        - listitem [ref=e410]:
+                          - button "数据质量与合规检测" [active] [ref=e411] [cursor=pointer]
+                        - listitem [ref=e414]:
+                          - button "检测执行与判定" [ref=e415] [cursor=pointer]
+                        - listitem [ref=e418]:
+                          - button "校验单管理" [ref=e419] [cursor=pointer]
+                        - listitem [ref=e422]:
+                          - button "共享发布" [ref=e423] [cursor=pointer]
+                - listitem [ref=e342]:
+                  - button "▸ 检测规则" [ref=e343] [cursor=pointer]:
+                    - generic [ref=e344]: ▸
+                    - generic [ref=e346]: 检测规则
+                - listitem [ref=e347]:
+                  - button "▸ 规则配置" [ref=e348] [cursor=pointer]:
+                    - generic [ref=e349]: ▸
+                    - generic [ref=e351]: 规则配置
+                - listitem [ref=e352]:
+                  - button "▸ 合规知识库" [ref=e353] [cursor=pointer]:
+                    - generic [ref=e354]: ▸
+                    - generic [ref=e356]: 合规知识库
+            - generic [ref=e357]:
+              - generic [ref=e426]:
+                - generic [ref=e427]: 数据共享中心
+                - generic [ref=e428]: /
+                - generic [ref=e429]: 洪涝应急救援项目
+                - generic [ref=e430]: /
+                - generic [ref=e431]: 数据质量与合规检测
+              - generic [ref=e358]:
+                - list "办理步骤" [ref=e359]:
+                  - listitem [ref=e360]:
+                    - button "1 载入数据" [ref=e361] [cursor=pointer]:
+                      - generic [ref=e362]: "1"
+                      - generic [ref=e363]: 载入数据
+                  - listitem [ref=e364]:
+                    - button "2 准入规则" [ref=e365] [cursor=pointer]:
+                      - generic [ref=e366]: "2"
+                      - generic [ref=e367]: 准入规则
+                  - listitem [ref=e368]:
+                    - button "3 异常处置" [ref=e369] [cursor=pointer]:
+                      - generic [ref=e370]: "3"
+                      - generic [ref=e371]: 异常处置
+                  - listitem [ref=e372]:
+                    - button "4 否决规则" [ref=e373] [cursor=pointer]:
+                      - generic [ref=e374]: "4"
+                      - generic [ref=e375]: 否决规则
+                  - listitem [ref=e376]:
+                    - button "5 规则依据" [ref=e377] [cursor=pointer]:
+                      - generic [ref=e378]: "5"
+                      - generic [ref=e379]: 规则依据
+                  - listitem [ref=e380]:
+                    - button "6 执行判定" [ref=e381] [cursor=pointer]:
+                      - generic [ref=e382]: "6"
+                      - generic [ref=e383]: 执行判定
+                  - listitem [ref=e384]:
+                    - button "7 校验单" [ref=e385] [cursor=pointer]:
+                      - generic [ref=e386]: "7"
+                      - generic [ref=e387]: 校验单
+                  - listitem [ref=e388]:
+                    - button "8 共享发布" [ref=e389] [cursor=pointer]:
+                      - generic [ref=e390]: "8"
+                      - generic [ref=e391]: 共享发布
+                - paragraph [ref=e392]: 已办理 0 / 8 · 每步点「保存」后进度前进
+              - generic [ref=e432]:
+                - heading "数据质量与合规检测" [level=3] [ref=e434]
+                - button "载入检测数据" [ref=e436] [cursor=pointer]
+                - generic [ref=e437]:
+                  - generic [ref=e438]:
+                    - generic [ref=e439]: "*选择数据集"
+                    - combobox "*选择数据集" [ref=e440]:
+                      - option "请选择"
+                      - option "《9网格灾情清洗数据表》" [selected]
+                      - option "《9网格灾情原始采集表》"
+                  - generic [ref=e441]:
+                    - generic [ref=e442]: "*选择检测场景"
+                    - combobox "*选择检测场景" [ref=e443]:
+                      - option "请选择" [selected]
+                      - option "预算模型准入检测"
+                      - option "支付合规检测"
+                - paragraph [ref=e444]: 系统自动读取：甲1—甲9 网格数据、数据采集来源、数据采集时间、清洗记录、异常值复核记录、基础信息匹配结果。
+          - generic [ref=e396]:
+            - generic [ref=e397]: 应急财经专网
+            - generic [ref=e398]: 账套 HJ-2026-001
+            - generic [ref=e399]: 操作员 财务主管统筹岗
+            - button "重置办理" [ref=e400] [cursor=pointer]

@@ -10,6 +10,11 @@ import { calculatePriceBaseline, getDirectControlPrices } from '../../domain/pro
 import { money, num, signedPercent } from '../../domain/format.js'
 
 const PAGES = ['receive', 'workbook', 'threshold']
+const STEPS = [
+  { id: 'receive', label: '采集报价' },
+  { id: 'workbook', label: '价格计算表' },
+  { id: 'threshold', label: '控制阈值' },
+]
 const flow = useTaskFlow('s2-t2', PAGES)
 const store = useFormPersist('s2-t2')
 
@@ -107,6 +112,7 @@ function resetAll() {
       operator="采购成本保障岗"
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"

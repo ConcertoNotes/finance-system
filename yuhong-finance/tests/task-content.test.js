@@ -158,6 +158,53 @@ test('资金类别页面保留工作簿规定的六项资金使用属性', () =>
   assert.match(source, /balance/)
 })
 
+test('保险方案选择按钮展开可编辑结果表', () => {
+  const source = readFileSync(new URL('../src/components/panels/InsurancePanel.vue', import.meta.url), 'utf8')
+  assert.match(source, /const showDecision = ref\(false\)/)
+  assert.match(source, /@click="showDecision = true"/)
+  assert.match(source, /v-if="showDecision"/)
+  assert.match(source, /v-model="decision\.company"/)
+  assert.match(source, /v-model="decision\.score"/)
+  assert.match(source, /v-model="decision\.premium"/)
+  assert.match(source, /v-model="decision\.fundingSource"/)
+  assert.match(source, /v-model="decision\.conclusion"/)
+  assert.match(source, /class="decision-input editable"/)
+})
+
+test('预算启动页选择B方案后才显示可编辑预算额度表', () => {
+  const source = readFileSync(new URL('../src/components/panels/BudgetApprovalPanel.vue', import.meta.url), 'utf8')
+  assert.match(source, /const controlForm = reactive\(\{/)
+  assert.match(source, /v-if="selectedPlan === 'B'"/)
+  assert.match(source, /v-model="controlForm\.total"/)
+  assert.match(source, /v-model="controlForm\.execution"/)
+  assert.match(source, /v-model="controlForm\.reserve"/)
+  assert.match(source, /v-model="controlForm\.cap"/)
+  assert.match(source, /class="field-input editable"/)
+  assert.match(source, /watch\(controlForm, \(\) => store\.persist\(snapshot\(\)\), \{ deep: true \}\)/)
+})
+
+test('账套启用校验按钮点击后转圈 3 秒再执行既有校验', () => {
+  const source = readFileSync(new URL('../src/components/panels/LedgerPanel.vue', import.meta.url), 'utf8')
+  assert.match(source, /const isLedgerValidating = ref\(false\)/)
+  assert.match(source, /function startLedgerActivationValidation\(\) \{/)
+  assert.match(source, /if \(isLedgerValidating\.value\) return/)
+  assert.match(source, /isLedgerValidating\.value = true/)
+  assert.match(source, /setTimeout\(\(\) => \{/)
+  assert.match(source, /\}, 3000\)/)
+  assert.match(source, /save\('ledger-activate'/)
+  assert.match(source, /isLedgerValidating\.value = false/)
+  assert.match(source, /:disabled="isLedgerValidating"/)
+  assert.match(source, /v-if="isLedgerValidating"/)
+  assert.match(source, /校验中…/)
+  assert.match(source, /class="spinner"/)
+})
+
+test('ABC预算编制页不显示三方案预算录入表', () => {
+  const source = readFileSync(new URL('../src/components/panels/AbcBudgetPanel.vue', import.meta.url), 'utf8')
+  assert.doesNotMatch(source, /<tr v-for="plan in abcPlans"/)
+  assert.doesNotMatch(source, /v-model="totals\[plan\.id\]"/)
+})
+
 test('合规性检测保留两层检测的关键口径', () => {
   const text = JSON.stringify(getTask('s1-t3'))
   assert.ok(text.includes('一票否决'))
@@ -177,6 +224,24 @@ test('每个任务都绑定了演算面板', () => {
   for (const task of tasks) {
     assert.ok(task.panel, `${task.key} 缺少 panel`)
   }
+})
+
+test('质量准入公式可编辑并随编辑自动保存', () => {
+  const source = readFileSync(new URL('../src/components/panels/CompliancePanel.vue', import.meta.url), 'utf8')
+  assert.match(source, /const formulas = reactive\(\{/)
+  assert.match(source, /v-model="formulas\.completeness"/)
+  assert.match(source, /v-model="formulas\.timeliness"/)
+  assert.match(source, /watch\(\[formulas, docs, referenceMode, evidenceStarted\], \(\) => store\.persist\(snapshot\(\)\), \{ deep: true \}\)/)
+  assert.match(source, /class="block-formula editable"/)
+})
+
+test('规则依据页需先点击「新建规则」才展开挂接内容，且展开状态与挂接内容随编辑自动保存', () => {
+  const source = readFileSync(new URL('../src/components/panels/CompliancePanel.vue', import.meta.url), 'utf8')
+  assert.match(source, /evidenceStarted = ref\(false\)/)
+  assert.match(source, /新建规则/)
+  assert.match(source, /v-if="evidenceStarted"/)
+  assert.match(source, /evidenceStarted/)
+  assert.match(source, /收起规则/)
 })
 
 test('补充表任务保留 ABC 预算、B 方案审批与二次灾情关键口径', () => {

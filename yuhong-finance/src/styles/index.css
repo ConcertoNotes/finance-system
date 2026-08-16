@@ -2713,6 +2713,86 @@ input[type='number'],
   color: var(--danger);
 }
 
+/* ----------------------------------------- 响应通知登记：记录条 + 展开详情 */
+
+.notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.notice-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.notice-item:hover {
+  background: var(--panel-alt);
+}
+
+.notice-item.active {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.notice-item-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.notice-item-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.notice-item-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: var(--pill);
+  background: var(--success-weak);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notice-item-caret {
+  color: var(--faint);
+}
+
+.notice-empty {
+  margin-top: 4px;
+  padding: 26px 16px;
+  text-align: center;
+  color: var(--faint);
+  border: 1px dashed var(--line-soft);
+  border-radius: var(--radius);
+}
+
+.notice-detail {
+  margin-top: 12px;
+}
+
+.notice-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.form-file-name {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* ------------------------------------------------------ operational form */
 
 .form-block {
@@ -3174,6 +3254,29 @@ input[type='number'],
 .ghost-button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* 正在处理中（转圈）的按钮保持清晰，不随禁用态淡化 */
+.primary-button.is-loading:disabled,
+.secondary-button.is-loading:disabled {
+  opacity: 1;
+}
+
+/* 加载转圈：模拟系统处理中的等待反馈，颜色继承按钮文字色 */
+.spinner {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: sys-spin 0.8s linear infinite;
+}
+
+@keyframes sys-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .text-button {

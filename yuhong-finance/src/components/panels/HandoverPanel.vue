@@ -11,6 +11,12 @@ import { calculateChangeImpact } from '../../domain/procurement.js'
 import { money, percent, signedPercent } from '../../domain/format.js'
 
 const PAGES = ['recheck', 'contingency', 'mapping', 'approve']
+const STEPS = [
+  { id: 'recheck', label: '合同复核' },
+  { id: 'contingency', label: '预备费动用' },
+  { id: 'mapping', label: '核算映射' },
+  { id: 'approve', label: '终审移交' },
+]
 const flow = useTaskFlow('s2-t6', PAGES)
 const store = useFormPersist('s2-t6')
 
@@ -134,6 +140,7 @@ function resetAll() {
       operator="采购成本保障岗"
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"

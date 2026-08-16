@@ -1,0 +1,172 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5] [cursor=pointer]:
+      - generic [ref=e6]: 御
+      - generic [ref=e7]:
+        - heading "御洪智策" [level=1] [ref=e8]
+        - paragraph [ref=e9]: 洪涝应急财经决策平台
+    - generic [ref=e10]:
+      - generic [ref=e11]: 汛情F-2026-0803
+      - generic [ref=e12]: 项目HJ-2026-001
+      - generic [ref=e13]: 17:56:45
+      - button "清除全部记录" [ref=e15] [cursor=pointer]
+  - generic [ref=e16]:
+    - complementary [ref=e17]:
+      - button "« 收起导航" [ref=e18] [cursor=pointer]:
+        - generic [ref=e19]: «
+        - generic [ref=e20]: 收起导航
+      - navigation [ref=e21]:
+        - link "00 首页总览" [ref=e22] [cursor=pointer]:
+          - /url: "#/"
+          - generic [ref=e23]: "00"
+          - generic [ref=e24]: 首页总览
+        - paragraph [ref=e25]: 岗位工作台
+        - button "F01 财务主管统筹岗 7" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: F01
+          - generic [ref=e29]: 财务主管统筹岗
+          - generic [ref=e30]: "7"
+        - button "P02 采购成本保障岗 8" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]: P02
+          - generic [ref=e34]: 采购成本保障岗
+          - generic [ref=e35]: "8"
+        - button "B03 应急预算绩效岗 5" [ref=e37] [cursor=pointer]:
+          - generic [ref=e38]: B03
+          - generic [ref=e39]: 应急预算绩效岗
+          - generic [ref=e40]: "5"
+        - button "R04 资金核算风控岗 3" [ref=e42] [cursor=pointer]:
+          - generic [ref=e43]: R04
+          - generic [ref=e44]: 资金核算风控岗
+          - generic [ref=e45]: "3"
+        - paragraph [ref=e46]: 辅助资源
+        - link "AI 数字人御洪星" [ref=e47] [cursor=pointer]:
+          - /url: "#/assistant"
+          - generic [ref=e48]: AI
+          - generic [ref=e49]: 数字人御洪星
+        - link "DS 补充数据表" [ref=e50] [cursor=pointer]:
+          - /url: "#/workbooks"
+          - generic [ref=e51]: DS
+          - generic [ref=e52]: 补充数据表
+    - main [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - heading "御洪智策 · 洪涝应急财经决策平台" [level=1] [ref=e57]
+            - paragraph [ref=e58]: 业务内容取自阶段一、阶段一补充表、阶段二岗位工作簿与四张计算表。左侧选择岗位后，右侧显示该岗位承担的全部任务卡片，点击卡片进入任务操作台。
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - strong [ref=e62]: "4"
+              - generic [ref=e63]: 业务岗位
+            - generic [ref=e64]:
+              - strong [ref=e65]: "13"
+              - generic [ref=e66]: 业务任务
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - heading "岗位工作台" [level=2] [ref=e69]
+            - generic [ref=e70]: 点击岗位进入其任务卡片列表
+          - generic [ref=e72]:
+            - button "F01 7 个任务 财务主管统筹岗 专项账套启用、数据合规准入、重大方案审批与跨岗位统筹 主责 3 协同 4" [ref=e73] [cursor=pointer]:
+              - generic [ref=e74]:
+                - generic [ref=e75]: F01
+                - generic [ref=e76]: 7 个任务
+              - heading "财务主管统筹岗" [level=3] [ref=e77]
+              - paragraph [ref=e78]: 专项账套启用、数据合规准入、重大方案审批与跨岗位统筹
+              - generic [ref=e79]:
+                - generic [ref=e80]: 主责 3
+                - generic [ref=e81]: 协同 4
+            - button "P02 8 个任务 采购成本保障岗 灾情数据采集、保险比选、采购需求测算、价格基准与合同履约管理 主责 7 协同 1" [ref=e82] [cursor=pointer]:
+              - generic [ref=e83]:
+                - generic [ref=e84]: P02
+                - generic [ref=e85]: 8 个任务
+              - heading "采购成本保障岗" [level=3] [ref=e86]
+              - paragraph [ref=e87]: 灾情数据采集、保险比选、采购需求测算、价格基准与合同履约管理
+              - generic [ref=e88]:
+                - generic [ref=e89]: 主责 7
+                - generic [ref=e90]: 协同 1
+            - button "B03 5 个任务 应急预算绩效岗 成本动因转换、预算测算、预算占用率复核与预备费管理 主责 3 协同 2" [ref=e91] [cursor=pointer]:
+              - generic [ref=e92]:
+                - generic [ref=e93]: B03
+                - generic [ref=e94]: 5 个任务
+              - heading "应急预算绩效岗" [level=3] [ref=e95]
+              - paragraph [ref=e96]: 成本动因转换、预算测算、预算占用率复核与预备费管理
+              - generic [ref=e97]:
+                - generic [ref=e98]: 主责 3
+                - generic [ref=e99]: 协同 2
+            - button "R04 3 个任务 资金核算风控岗 资金分类、预算占用、付款核验、四流匹配与会计核算 主责 0 协同 3" [ref=e100] [cursor=pointer]:
+              - generic [ref=e101]:
+                - generic [ref=e102]: R04
+                - generic [ref=e103]: 3 个任务
+              - heading "资金核算风控岗" [level=3] [ref=e104]
+              - paragraph [ref=e105]: 资金分类、预算占用、付款核验、四流匹配与会计核算
+              - generic [ref=e106]:
+                - generic [ref=e107]: 主责 0
+                - generic [ref=e108]: 协同 3
+        - generic [ref=e109]:
+          - generic [ref=e110]:
+            - heading "业务流程全景" [level=2] [ref=e111]
+            - generic [ref=e112]: 13 项任务按执行顺序排列
+          - list [ref=e114]:
+            - listitem [ref=e115] [cursor=pointer]:
+              - generic [ref=e116]: "1"
+              - generic [ref=e117]:
+                - strong [ref=e118]: 启用洪涝应急救援专项账套
+                - paragraph [ref=e119]: 建立洪涝应急救援专项账套，配置专项科目、资金来源、9网格辅助核算、岗位权限与5项内控规则，打通“需求—物资—资金—凭证”四链联动。
+            - listitem [ref=e120] [cursor=pointer]:
+              - generic [ref=e121]: "2"
+              - generic [ref=e122]:
+                - strong [ref=e123]: 建设洪涝应急救援数据采集系统
+                - paragraph [ref=e124]: 接入应急管理、气象、无人机、御洪星四类数据源，建立统一字段模型与 Python 采集节点，完成 9 网格数据采集、敏感数据分级与 IQR 异常监测。
+            - listitem [ref=e125] [cursor=pointer]:
+              - generic [ref=e126]: "3"
+              - generic [ref=e127]:
+                - strong [ref=e128]: 数据建模分析合规性检测
+                - paragraph [ref=e129]: 对清洗后的 9 网格数据执行两层校验：第一层 95% 内部质量门槛，第二层 6 项合规一票否决，判定是否准予进入预算模型。
+            - listitem [ref=e130] [cursor=pointer]:
+              - generic [ref=e131]: "4"
+              - generic [ref=e132]:
+                - strong [ref=e133]: 救援人员保险方案比较
+                - paragraph [ref=e134]: 对 A/B/C 三家保险产品按 8 项指标加权评分，成本型与效益型指标分别标准化，选出综合得分最高方案并测算总保费。
+            - listitem [ref=e135] [cursor=pointer]:
+              - generic [ref=e136]: "5"
+              - generic [ref=e137]:
+                - strong [ref=e138]: 将灾情数据转换为成本动因
+                - paragraph [ref=e139]: 把 9 网格灾情数据按 7 类核心公式转换为预算计算参数，形成网格预算、保险预算与设备预算，汇总总预算需求。
+            - listitem [ref=e140] [cursor=pointer]:
+              - generic [ref=e141]: "6"
+              - generic [ref=e142]:
+                - strong [ref=e143]: 编制ABC等级预算
+                - paragraph [ref=e144]: 按轻度、中度、重度编制 A/B/C 三套预算：A 方案 2,816,906 元、B 方案 2,909,004 元、C 方案 4,278,517.50 元，并形成单位受益成本与适用灾情对照。
+            - listitem [ref=e145] [cursor=pointer]:
+              - generic [ref=e146]: "7"
+              - generic [ref=e147]:
+                - strong [ref=e148]: B方案预算审批
+                - paragraph [ref=e149]: 登记 III 级响应并载入 B 方案，按已确认到账 366 万元测算资金覆盖率 125.82%，建立 2,909,004 元预算控制额度并完成审批同步。
+            - listitem [ref=e150] [cursor=pointer]:
+              - generic [ref=e151]: "8"
+              - generic [ref=e152]:
+                - strong [ref=e153]: 第一次突发事件——受灾人数突然增加
+                - paragraph [ref=e154]: 甲3、甲6二次报送后响应由 III 级升为 II 级，预算由 B 方案切换为 C 方案；财政资金全部到位后覆盖率 93.96%，短期缺口 258,517.50 元，并启动帐篷追加采购。
+            - listitem [ref=e155] [cursor=pointer]:
+              - generic [ref=e156]: "9"
+              - generic [ref=e157]:
+                - strong [ref=e158]: 生成9网格采购需求
+                - paragraph [ref=e159]: 按安置方式与帐篷可用量测算 6 类物资净采购量，划分合同采购与生活保障直采，并由财务主管复核后生成采购任务。
+            - listitem [ref=e160] [cursor=pointer]:
+              - generic [ref=e161]: "10"
+              - generic [ref=e162]:
+                - strong [ref=e163]: 建立分层采购价格基准
+                - paragraph [ref=e164]: 接收供应商报价后下载分层采购价格计算表，导入测算结果，并按 5%/10% 设置绿黄红偏差预警。
+            - listitem [ref=e165] [cursor=pointer]:
+              - generic [ref=e166]: "11"
+              - generic [ref=e167]:
+                - strong [ref=e168]: 合同物资供应商综合评分与初始遴选
+                - paragraph [ref=e169]: 按报价 40%、交付 20%、质量 15%、资质 10%、履约 10%、距离 5% 加权评分，形成 S2 > S1 > S3 初始排序并完成三岗复核。
+            - listitem [ref=e170] [cursor=pointer]:
+              - generic [ref=e171]: "12"
+              - generic [ref=e172]:
+                - strong [ref=e173]: 初始合同、直采控制与预算占用
+                - paragraph [ref=e174]: 编制 HT-2025-001 合同 932,460 元与生活保障直采协议 149,397.50 元，占用 C 方案预算 25.29%，并完成资金控制与履约监测分流。
+            - listitem [ref=e175] [cursor=pointer]:
+              - generic [ref=e176]: "13"
+              - generic [ref=e177]:
+                - strong [ref=e178]: 第二次突发事件——供应商库存突变，重点物资无法按时足量交付
+                - paragraph [ref=e179]: 交叉核验 S2 仓库局部进水属实后，测算 12 小时缺口 200 顶、最终合同供应缺口 150 顶，形成可复制到 Excel 的影响测算表。

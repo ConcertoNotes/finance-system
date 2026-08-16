@@ -18,6 +18,17 @@ import { calculateContractAmount, calculateDirectAmount } from '../../domain/pro
 import { money, num, percent, rmbUpper } from '../../domain/format.js'
 
 const PAGES = ['contract', 'direct', 'occupation', 'fund', 'approve', 'dispatch', 'monitor', 'alert', 'ledger']
+const STEPS = [
+  { id: 'contract', label: '主合同' },
+  { id: 'direct', label: '直采协议' },
+  { id: 'occupation', label: '预算占用率' },
+  { id: 'fund', label: '资金控制' },
+  { id: 'approve', label: '方案审批' },
+  { id: 'dispatch', label: '任务分流' },
+  { id: 'monitor', label: '履约监测' },
+  { id: 'alert', label: '预警设置' },
+  { id: 'ledger', label: '直采台账' },
+]
 const flow = useTaskFlow('s2-t4', PAGES)
 const store = useFormPersist('s2-t4')
 
@@ -152,6 +163,7 @@ function resetAll() {
       operator="采购成本保障岗"
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"

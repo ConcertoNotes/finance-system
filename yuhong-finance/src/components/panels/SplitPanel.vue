@@ -10,6 +10,10 @@ import { copyTsv } from '../../domain/clipboard.js'
 import { num, percent } from '../../domain/format.js'
 
 const PAGES = ['verify', 'impact']
+const STEPS = [
+  { id: 'verify', label: '核验异常' },
+  { id: 'impact', label: '合同影响' },
+]
 const flow = useTaskFlow('s2-t5', PAGES)
 const store = useFormPersist('s2-t5')
 
@@ -109,6 +113,7 @@ function resetAll() {
       operator="采购成本保障岗"
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"

@@ -1,0 +1,82 @@
+- generic [ref=f3e3]:
+  - banner [ref=f3e4]:
+    - generic [ref=f3e5] [cursor=pointer]:
+      - generic [ref=f3e6]: 御
+      - generic [ref=f3e7]:
+        - heading "御洪智策" [level=1] [ref=f3e8]
+        - paragraph [ref=f3e9]: 洪涝应急财经决策平台
+    - generic [ref=f3e10]:
+      - generic [ref=f3e11]: 汛情F-2026-0803
+      - generic [ref=f3e12]: 项目HJ-2026-001
+      - generic [ref=f3e13]: 18:12:59
+      - button "清除本任务记录" [ref=f3e15] [cursor=pointer]
+  - generic [ref=f3e16]:
+    - complementary [ref=f3e17]:
+      - button "« 收起导航" [ref=f3e18] [cursor=pointer]:
+        - generic [ref=f3e19]: «
+        - generic [ref=f3e20]: 收起导航
+      - navigation [ref=f3e21]:
+        - link "00 首页总览" [ref=f3e22] [cursor=pointer]:
+          - /url: "#/"
+          - generic [ref=f3e23]: "00"
+          - generic [ref=f3e24]: 首页总览
+        - paragraph [ref=f3e25]: 岗位工作台
+        - generic [ref=f3e26]:
+          - button "F01 财务主管统筹岗 7" [ref=f3e27] [cursor=pointer]:
+            - generic [ref=f3e28]: F01
+            - generic [ref=f3e29]: 财务主管统筹岗
+            - generic [ref=f3e30]: "7"
+          - generic [ref=f3e31]:
+            - button "1 启用洪涝应急救援专项账套" [ref=f3e32] [cursor=pointer]:
+              - generic [ref=f3e33]: "1"
+              - generic [ref=f3e34]: 启用洪涝应急救援专项账套
+            - button "2 数据建模分析合规性检测" [ref=f3e35] [cursor=pointer]:
+              - generic [ref=f3e36]: "2"
+              - generic [ref=f3e37]: 数据建模分析合规性检测
+            - button "3 B方案预算审批" [ref=f3e38] [cursor=pointer]:
+              - generic [ref=f3e39]: "3"
+              - generic [ref=f3e40]: B方案预算审批
+            - button "4 第一次突发事件——受灾人数突然增加" [ref=f3e41] [cursor=pointer]:
+              - generic [ref=f3e42]: "4"
+              - generic [ref=f3e43]: 第一次突发事件——受灾人数突然增加
+            - button "5 生成9网格采购需求" [ref=f3e44] [cursor=pointer]:
+              - generic [ref=f3e45]: "5"
+              - generic [ref=f3e46]: 生成9网格采购需求
+            - button "6 合同物资供应商综合评分与初始遴选" [ref=f3e47] [cursor=pointer]:
+              - generic [ref=f3e48]: "6"
+              - generic [ref=f3e49]: 合同物资供应商综合评分与初始遴选
+            - button "7 初始合同、直采控制与预算占用" [ref=f3e50] [cursor=pointer]:
+              - generic [ref=f3e51]: "7"
+              - generic [ref=f3e52]: 初始合同、直采控制与预算占用
+        - button "P02 采购成本保障岗 8" [ref=f3e54] [cursor=pointer]:
+          - generic [ref=f3e55]: P02
+          - generic [ref=f3e56]: 采购成本保障岗
+          - generic [ref=f3e57]: "8"
+        - button "B03 应急预算绩效岗 5" [ref=f3e59] [cursor=pointer]:
+          - generic [ref=f3e60]: B03
+          - generic [ref=f3e61]: 应急预算绩效岗
+          - generic [ref=f3e62]: "5"
+        - button "R04 资金核算风控岗 3" [ref=f3e64] [cursor=pointer]:
+          - generic [ref=f3e65]: R04
+          - generic [ref=f3e66]: 资金核算风控岗
+          - generic [ref=f3e67]: "3"
+        - paragraph [ref=f3e68]: 辅助资源
+        - link "AI 数字人御洪星" [ref=f3e69] [cursor=pointer]:
+          - /url: "#/assistant"
+          - generic [ref=f3e70]: AI
+          - generic [ref=f3e71]: 数字人御洪星
+        - link "DS 补充数据表" [ref=f3e72] [cursor=pointer]:
+          - /url: "#/workbooks"
+          - generic [ref=f3e73]: DS
+          - generic [ref=f3e74]: 补充数据表
+    - main [ref=f3e75]:
+      - generic [ref=f3e77]:
+        - generic [ref=f3e78]:
+          - generic [ref=f3e79]: 任务 2
+          - heading "数据建模分析合规性检测" [level=1] [ref=f3e80]
+          - generic [ref=f3e81]: 主责 财务主管统筹岗
+        - generic [ref=f3e82]:
+          - button "返回岗位" [ref=f3e83] [cursor=pointer]
+          - generic [ref=f3e84]:
+            - button "上一任务" [ref=f3e85] [cursor=pointer]
+            - button "下一任务" [ref=f3e86] [cursor=pointer]

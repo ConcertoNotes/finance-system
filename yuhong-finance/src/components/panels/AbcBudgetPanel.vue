@@ -14,6 +14,10 @@ import { summarizeAbcPlans } from '../../domain/abcBudget.js'
 import { money, num } from '../../domain/format.js'
 
 const PAGES = ['open-book', 'import-result']
+const STEPS = [
+  { id: 'open-book', label: '编制ABC预算' },
+  { id: 'import-result', label: '导入测算结果' },
+]
 const flow = useTaskFlow('s1-t6', PAGES)
 const store = useFormPersist('s1-t6')
 
@@ -91,6 +95,7 @@ function resetAll() {
       operator="应急预算绩效岗"
       login-hint="登录后下载三受灾等级预算计算表，点击导入即可呈现全部对照内容。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"
@@ -109,20 +114,6 @@ function resetAll() {
               <input v-model="workbookName" class="form-control" />
             </label>
           </div>
-          <table class="calc-table center-text">
-            <thead>
-              <tr><th>方案</th><th>适用灾情</th><th>安置期</th><th>覆盖人数</th><th>总预算（元）</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="plan in abcPlans" :key="plan.id">
-                <th scope="row">{{ plan.name }}</th>
-                <td>{{ plan.applicable }}</td>
-                <td>{{ plan.days }} 天</td>
-                <td>{{ num(plan.people, 0) }} 人</td>
-                <td><input v-model="totals[plan.id]" type="number" min="0" step="0.5" /></td>
-              </tr>
-            </tbody>
-          </table>
           <template v-if="flow.isDone('open-book')">
             <p class="sys-toast">{{ ABC_WORKBOOK }} 已打开，三方案总预算已按计算表回填。</p>
           </template>

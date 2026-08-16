@@ -11,6 +11,12 @@ import { calculatePriceBaseline, scoreSuppliers } from '../../domain/procurement
 import { money, num, percent } from '../../domain/format.js'
 
 const PAGES = ['score', 'budget', 'risk', 'approve']
+const STEPS = [
+  { id: 'score', label: '综合评分' },
+  { id: 'budget', label: '预算复核' },
+  { id: 'risk', label: '资质核验' },
+  { id: 'approve', label: '审批S2' },
+]
 const flow = useTaskFlow('s2-t3', PAGES)
 const store = useFormPersist('s2-t3')
 
@@ -143,6 +149,7 @@ function resetAll() {
       operator="采购成本保障岗"
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"

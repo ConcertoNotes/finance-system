@@ -1,0 +1,80 @@
+[   78341ms] [WARNING] [Vue warn]: Unhandled error during execution of setup function 
+  at <CompliancePanel key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <AsyncComponentWrapper key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskPanelHost panel="compliance" task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskDetailView onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > key="/role/finance-lead/s1-t3#0" > 
+  at <RouterView> 
+  at <AppLayout onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouterView> 
+  at <App> @ http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2229
+[   78342ms] [WARNING] [Vue warn]: Unhandled error during execution of scheduler flush 
+  at <CompliancePanel key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <AsyncComponentWrapper key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskPanelHost panel="compliance" task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskDetailView onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > key="/role/finance-lead/s1-t3#0" > 
+  at <RouterView> 
+  at <AppLayout onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouterView> 
+  at <App> @ http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2229
+[   78344ms] ReferenceError: disposalEnabled is not defined
+    at snapshot (http://192.168.2.4:5173/src/components/panels/CompliancePanel.vue?t=1786874996654:268:5)
+    at setup (http://192.168.2.4:5173/src/components/panels/CompliancePanel.vue?t=1786874996654:281:15)
+    at callWithErrorHandling (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2377:19)
+    at setupStatefulComponent (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:10412:25)
+    at setupComponent (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:10374:36)
+    at mountComponent (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:8285:7)
+    at processComponent (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:8251:9)
+    at patch (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:7743:11)
+    at ReactiveEffect.componentUpdateFn [as fn] (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:8479:9)
+    at ReactiveEffect.run (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:532:19)
+[   80248ms] [WARNING] [Vue warn]: Unhandled error during execution of scheduler flush 
+  at <CompliancePanel key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <AsyncComponentWrapper key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskPanelHost panel="compliance" task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskDetailView onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > key="/role/finance-lead/s1-t3#0" > 
+  at <RouterView> 
+  at <AppLayout onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouterView> 
+  at <App> @ http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2229
+[   80249ms] TypeError: Cannot read properties of null (reading 'flags')
+    at http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2713:28
+    at callWithErrorHandling (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2377:33)
+    at flushJobs (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2585:9)
+[   80761ms] [WARNING] [Vue warn]: Unhandled error during execution of scheduler flush 
+  at <CompliancePanel key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <AsyncComponentWrapper key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskPanelHost panel="compliance" task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskDetailView onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > key="/role/finance-lead/s1-t3#0" > 
+  at <RouterView> 
+  at <AppLayout onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouterView> 
+  at <App> @ http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2229
+[   80762ms] TypeError: Cannot read properties of null (reading 'flags')
+    at http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2713:28
+    at callWithErrorHandling (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2377:33)
+    at flushJobs (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2585:9)
+[   81662ms] [WARNING] [Vue warn]: Unhandled error during execution of scheduler flush 
+  at <CompliancePanel key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <AsyncComponentWrapper key=0 task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskPanelHost panel="compliance" task= {key: s1-t3, stage: 1, no: 3, title: 数据建模分析合规性检测, owner: finance-lead} > 
+  at <TaskDetailView onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > key="/role/finance-lead/s1-t3#0" > 
+  at <RouterView> 
+  at <AppLayout onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouterView> 
+  at <App> @ http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2229
+[   81664ms] TypeError: Cannot read properties of null (reading 'flags')
+    at http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2713:28
+    at callWithErrorHandling (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2377:33)
+    at flushJobs (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2585:9)
+[   91134ms] [ERROR] TypeError: Cannot read properties of null (reading 'flags')
+    at http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2681:24
+    at Array.forEach (<anonymous>)
+    at rerender (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2674:25)
+    at Object.rerender (http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2748:14)
+    at http://192.168.2.4:5173/src/components/panels/CompliancePanel.vue?t=1786874999970:1315:25
+    at http://192.168.2.4:5173/@vite/client:34:58
+    at http://192.168.2.4:5173/@vite/client:213:11
+    at http://192.168.2.4:5173/@vite/client:186:58
+    at Array.forEach (<anonymous>)
+    at HMRClient.queueUpdate (http://192.168.2.4:5173/@vite/client:186:36) @ http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2749
+[   91134ms] [WARNING] [HMR] Something went wrong during Vue component hot-reload. Full reload required. @ http://192.168.2.4:5173/node_modules/.vite/deps/chunk-PYJHRUJJ.js?v=53965f5a:2750

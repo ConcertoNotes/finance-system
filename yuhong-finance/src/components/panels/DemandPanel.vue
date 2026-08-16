@@ -17,6 +17,13 @@ import {
 import { money, num } from '../../domain/format.js'
 
 const PAGES = ['shelter', 'tent', 'others', 'route', 'review']
+const STEPS = [
+  { id: 'shelter', label: '确认安置' },
+  { id: 'tent', label: '帐篷可用量' },
+  { id: 'others', label: '物资净需求' },
+  { id: 'route', label: '执行路径' },
+  { id: 'review', label: '需求审核' },
+]
 const flow = useTaskFlow('s2-t1', PAGES)
 const store = useFormPersist('s2-t1')
 
@@ -203,6 +210,7 @@ function resetAll() {
       operator="采购成本保障岗"
       login-hint="登录后从左侧功能菜单逐级进入需要办理的业务页面。"
       :menu="menu"
+      :steps="STEPS"
       :completed="flow.done.value"
       :error="error"
       v-model:active-id="activeId"
