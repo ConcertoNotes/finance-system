@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import { roles } from '../src/data/roles.js'
@@ -139,6 +140,22 @@ test('启用专项账套保留关键配置与内控规则原文', () => {
   assert.ok(text.includes('洪涝应急救援专项账套'))
   assert.ok(text.includes('用途强制校验'))
   assert.ok(text.includes('四流数据不一致'))
+})
+
+test('资金类别页面保留工作簿规定的六项资金使用属性', () => {
+  const source = readFileSync(new URL('../src/components/panels/LedgerPanel.vue', import.meta.url), 'utf8')
+  assert.match(source, /limitedUse: true/)
+  assert.match(source, /<input v-model="fundAttrs\.limitedUse" type="checkbox" \/>是否限定用途/)
+  assert.match(source, /限定使用网格/)
+  assert.match(source, /限定物资类别/)
+  assert.match(source, /到账时间/)
+  assert.match(source, /可支付时间/)
+  assert.match(source, /当前可用余额/)
+  assert.match(source, /limitedGrids/)
+  assert.match(source, /limitedMaterials/)
+  assert.match(source, /arrivalTime/)
+  assert.match(source, /payableTime/)
+  assert.match(source, /balance/)
 })
 
 test('合规性检测保留两层检测的关键口径', () => {

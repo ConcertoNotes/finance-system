@@ -68,7 +68,6 @@ const activeId = ref('')
 const error = ref('')
 
 const PROJECT_OPTIONS = ['洪涝应急救援专项项目', '日常业务项目']
-const MATERIAL_OPTIONS = ['帐篷', '食品', '饮用水', '棉被', '急救包', '救生衣']
 const AUX_LEVELS = ['洪涝应急救援专项', '网格', '物资/费用项目']
 
 const form = reactive({
@@ -95,12 +94,13 @@ const rules = reactive({ 规则1: false, 规则2: false, 规则3: false, 规则4
 const auxLevels = reactive(Object.fromEntries(AUX_LEVELS.map((n) => [n, false])))
 
 const fundAttrs = reactive({
-  limitedUse: false,
-  limitedGrids: Object.fromEntries(gridNames.map((n) => [n, false])),
-  limitedMaterials: Object.fromEntries(MATERIAL_OPTIONS.map((n) => [n, false])),
-  arrivalTime: '',
-  payableTime: '',
-  balance: '',
+  limitedUse: true,
+  limitedGrids: false,
+  limitedMaterials: false,
+  arrivalTime: false,
+  payableTime: false,
+  balance: false,
+  purposeForce: false,
 })
 
 const chainRows = [
@@ -152,8 +152,6 @@ const chosenSubjects = computed(() => subjectNames.filter((n) => subjects[n]))
 const chosenAux = computed(() => auxNames.filter((n) => aux[n]))
 const chosenGrids = computed(() => gridNames.filter((n) => grids[n]))
 const chosenLevels = computed(() => AUX_LEVELS.filter((n) => auxLevels[n]))
-const chosenMaterials = computed(() => MATERIAL_OPTIONS.filter((n) => fundAttrs.limitedMaterials[n]))
-const chosenLimitGrids = computed(() => gridNames.filter((n) => fundAttrs.limitedGrids[n]))
 const enabledChainRules = computed(() => chainRules.filter((r) => chainRuleOn[r]))
 
 function boundFieldsOf(step) {
@@ -205,9 +203,15 @@ function resetAll() {
   gridNames.forEach((n) => { grids[n] = false })
   controlRules.forEach((r) => { rules[r.id] = false })
   AUX_LEVELS.forEach((n) => { auxLevels[n] = false })
-  Object.assign(fundAttrs, { limitedUse: false, arrivalTime: '', payableTime: '', balance: '' })
-  gridNames.forEach((n) => { fundAttrs.limitedGrids[n] = false })
-  MATERIAL_OPTIONS.forEach((n) => { fundAttrs.limitedMaterials[n] = false })
+  Object.assign(fundAttrs, {
+    limitedUse: true,
+    limitedGrids: false,
+    limitedMaterials: false,
+    arrivalTime: false,
+    payableTime: false,
+    balance: false,
+    purposeForce: false,
+  })
   Object.keys(chainBind).forEach((k) => { chainBind[k] = false })
   chainRules.forEach((r) => { chainRuleOn[r] = false })
   roleNodeKeys.forEach((k) => { roleChecked[k] = false })
@@ -329,53 +333,54 @@ function resetAll() {
           <div class="sys-toolbar">
             <button type="button" class="primary-button"
               @click="save('fund-category', () => {
+                if (strictList.length !== fundNames.length) return '请勾选全部资金来源标签'
+                if (!fundAttrs.purposeForce) return '请开启限定性捐赠的用途强制校验'
                 if (!fundAttrs.limitedUse) return '请勾选是否限定用途'
-                if (chosenLimitGrids.length !== 9) return '请勾选全部限定使用网格甲1—甲9'
-                if (chosenMaterials.length !== MATERIAL_OPTIONS.length) return '限定物资类别只保留帐篷、食品、饮用水、棉被、急救包、救生衣，请全部勾选'
-                if (!fundAttrs.arrivalTime || !fundAttrs.payableTime) return '请填写到账时间与可支付时间'
-                if (fundAttrs.balance === '' || fundAttrs.balance == null) return '请填写当前可用余额'
-                strictFunds['限定性社会捐赠'] = true
                 return ''
               })">保存</button>
           </div>
-          <p class="form-desc">进一步设置资金使用属性。本页只办理下面 6 项，不再另开用途强制校验入口。</p>
+          <p class="form-desc">建立资金来源标签</p>
+          <div class="checkbox-group">
+            <label v-for="n in fundNames" :key="n" class="checkbox-item">
+              <input v-model="strictFunds[n]" type="checkbox" />{{ n }}
+            </label>
+          </div>
+          <div class="status-board">
+            <h3>限定性捐赠 → 开启“用途强制校验”</h3>
+            <p v-if="fundAttrs.purposeForce">状态：已开启</p>
+            <button
+              v-else
+              type="button"
+              class="primary-button"
+              @click="fundAttrs.purposeForce = true"
+            >开启</button>
+          </div>
+          <p class="form-desc">进一步设置资金使用属性</p>
           <div class="checkbox-group">
             <label class="checkbox-item">
               <input v-model="fundAttrs.limitedUse" type="checkbox" />是否限定用途
             </label>
-          </div>
-          <p class="form-desc">限定使用网格</p>
-          <div class="checkbox-group tight">
-            <label v-for="n in gridNames" :key="n" class="checkbox-item">
-              <input v-model="fundAttrs.limitedGrids[n]" type="checkbox" />{{ n }}
+            <label class="checkbox-item">
+              <input v-model="fundAttrs.limitedGrids" type="checkbox" />限定使用网格
             </label>
-          </div>
-          <p class="form-desc">限定物资类别</p>
-          <div class="checkbox-group">
-            <label v-for="n in MATERIAL_OPTIONS" :key="n" class="checkbox-item">
-              <input v-model="fundAttrs.limitedMaterials[n]" type="checkbox" />{{ n }}
+            <label class="checkbox-item">
+              <input v-model="fundAttrs.limitedMaterials" type="checkbox" />限定物资类别
             </label>
-          </div>
-          <div class="form-row">
-            <label class="form-item">
-              <span class="form-label required">到账时间</span>
-              <input v-model="fundAttrs.arrivalTime" class="form-control" type="date" />
+            <label class="checkbox-item">
+              <input v-model="fundAttrs.arrivalTime" type="checkbox" />到账时间
             </label>
-            <label class="form-item">
-              <span class="form-label required">可支付时间</span>
-              <input v-model="fundAttrs.payableTime" class="form-control" type="date" />
+            <label class="checkbox-item">
+              <input v-model="fundAttrs.payableTime" type="checkbox" />可支付时间
             </label>
-            <label class="form-item">
-              <span class="form-label required">当前可用余额</span>
-              <input v-model="fundAttrs.balance" class="form-control" type="number" min="0" step="1000" />
+            <label class="checkbox-item">
+              <input v-model="fundAttrs.balance" type="checkbox" />当前可用余额
             </label>
           </div>
           <template v-if="flow.isDone('fund-category')">
-            <p class="sys-toast">资金使用属性已保存。勾选限定用途后，限定性捐赠自动开启用途强制校验。</p>
+            <p class="sys-toast">资金来源标签已保存，限定性捐赠已开启用途强制校验。</p>
             <ul class="sys-lines">
-              <li>限定使用网格：{{ chosenLimitGrids.join('、') }}</li>
-              <li>限定物资类别：{{ chosenMaterials.join('、') }}</li>
-              <li>到账时间 {{ fundAttrs.arrivalTime }}，可支付时间 {{ fundAttrs.payableTime }}，当前可用余额 {{ fundAttrs.balance }}</li>
+              <li>资金来源：{{ strictList.join('、') }}</li>
+              <li>限定用途：已勾选</li>
             </ul>
           </template>
         </template>
